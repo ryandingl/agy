@@ -29,8 +29,650 @@ const state = {
         laserCharge: 0,
         coreTemp: 37,
     },
-    screenShake: 0
+    screenShake: 0,
+    currentShopTab: 'upgrades',
+    currentSkinCategory: 'paddle',
+    skins: {
+        paddle: {
+            owned: [true, false, false, false],
+            active: 0
+        },
+        ball: {
+            owned: [true, false, false, false],
+            active: 0
+        },
+        brick: {
+            owned: [true, false, false, false],
+            active: 0
+        }
+    }
 };
+
+// Skins Configuration
+const SKINS_CONFIG = {
+    paddle: [
+        {
+            name: "DEFAULT_STEEL // 默认钢板",
+            price: 0,
+            bonus: 0.0,
+            desc: "标准警示斜纹金属板，无尺寸加成",
+            color: "#0044ff",
+            draw(p, c = ctx) {
+                c.save();
+                c.shadowBlur = 15;
+                c.shadowColor = p.color || this.color;
+                c.fillStyle = p.color || this.color;
+                
+                // Paddle body shape path
+                c.beginPath();
+                c.moveTo(p.x, p.y + p.height);
+                c.lineTo(p.x + 8, p.y);
+                c.lineTo(p.x + p.width - 8, p.y);
+                c.lineTo(p.x + p.width, p.y + p.height);
+                c.closePath();
+                c.fill();
+                c.clip(); // Clip caution lines inside paddle
+                
+                // Tech Caution stripe warning textures
+                c.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+                c.lineWidth = 4;
+                c.beginPath();
+                for (let offset = -p.height; offset < p.width + p.height; offset += 14) {
+                    c.moveTo(p.x + offset, p.y);
+                    c.lineTo(p.x + offset + p.height, p.y + p.height);
+                }
+                c.stroke();
+                
+                c.restore();
+            }
+        },
+        {
+            name: "NEON_GLOW_V1 // 霓虹极光",
+            price: 200,
+            bonus: 0.05,
+            desc: "极光绿高频偏振镀层，双折折线纹路，长度增加 5%",
+            color: "#00ffcc",
+            draw(p, c = ctx) {
+                c.save();
+                c.shadowBlur = 18;
+                c.shadowColor = this.color;
+                c.fillStyle = '#051210';
+                c.strokeStyle = this.color;
+                c.lineWidth = 2.2;
+                
+                c.beginPath();
+                c.moveTo(p.x, p.y + p.height);
+                c.lineTo(p.x + 8, p.y);
+                c.lineTo(p.x + p.width - 8, p.y);
+                c.lineTo(p.x + p.width, p.y + p.height);
+                c.closePath();
+                c.fill();
+                c.stroke();
+                c.clip();
+                
+                // Cyber Chevron folding line texture
+                c.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+                c.lineWidth = 1;
+                c.beginPath();
+                // Left chevron
+                c.moveTo(p.x + 15, p.y + p.height - 2);
+                c.lineTo(p.x + 25, p.y + 4);
+                c.lineTo(p.x + 38, p.y + 4);
+                // Right chevron
+                c.moveTo(p.x + p.width - 15, p.y + p.height - 2);
+                c.lineTo(p.x + p.width - 25, p.y + 4);
+                c.lineTo(p.x + p.width - 38, p.y + 4);
+                // Center circuit connection
+                c.moveTo(p.x + p.width/2 - 12, p.y + p.height/2);
+                c.lineTo(p.x + p.width/2 + 12, p.y + p.height/2);
+                c.stroke();
+                
+                // Micro terminals
+                c.fillStyle = '#ffffff';
+                c.fillRect(p.x + 38, p.y + 3, 2.5, 2.5);
+                c.fillRect(p.x + p.width - 40.5, p.y + 3, 2.5, 2.5);
+                
+                c.restore();
+            }
+        },
+        {
+            name: "PLASMA_STRIKE // 等离子战盾",
+            price: 300,
+            bonus: 0.10,
+            desc: "等离子护盾发生器，蜂窝装甲花纹，长度增加 10%",
+            color: "#ff00ff",
+            draw(p, c = ctx) {
+                c.save();
+                c.shadowBlur = 22;
+                c.shadowColor = this.color;
+                c.fillStyle = 'rgba(25, 10, 35, 0.9)';
+                c.strokeStyle = this.color;
+                c.lineWidth = 2.5;
+                
+                c.beginPath();
+                c.moveTo(p.x, p.y + p.height);
+                c.lineTo(p.x + 10, p.y);
+                c.lineTo(p.x + p.width - 10, p.y);
+                c.lineTo(p.x + p.width, p.y + p.height);
+                c.closePath();
+                c.fill();
+                c.stroke();
+                c.clip();
+                
+                // Honeycomb grid texture overlays
+                c.strokeStyle = 'rgba(255, 0, 255, 0.22)';
+                c.lineWidth = 0.8;
+                const size = 5;
+                const h = size * Math.sqrt(3);
+                for (let y = p.y - h; y < p.y + p.height + h; y += h) {
+                    c.beginPath();
+                    for (let x = p.x - size; x < p.x + p.width + size; x += size * 3) {
+                        c.moveTo(x, y);
+                        c.lineTo(x + size, y);
+                        c.lineTo(x + size * 1.5, y + h / 2);
+                        c.lineTo(x + size, y + h);
+                        c.lineTo(x, y + h);
+                        c.lineTo(x - size * 0.5, y + h / 2);
+                        c.closePath();
+                    }
+                    c.stroke();
+                }
+                
+                // Energized pulsing central conduit
+                const pulse = Math.sin(Date.now() / 80) * 0.4 + 0.6;
+                c.strokeStyle = `rgba(255, 255, 255, ${pulse})`;
+                c.lineWidth = 2;
+                c.shadowColor = '#ffffff';
+                c.beginPath();
+                c.moveTo(p.x + 20, p.y + p.height/2);
+                c.lineTo(p.x + p.width - 20, p.y + p.height/2);
+                c.stroke();
+                
+                c.restore();
+            }
+        },
+        {
+            name: "QUANTUM_INFINITY // 量子无极",
+            price: 500,
+            bonus: 0.175,
+            desc: "终极量子网格稳定器，黄金机械分段与量子旋转环，长度增加 17.5%",
+            color: "#ffb700",
+            draw(p, c = ctx) {
+                c.save();
+                c.shadowBlur = 25;
+                c.shadowColor = this.color;
+                c.fillStyle = '#0a0912';
+                c.strokeStyle = this.color;
+                c.lineWidth = 2.5;
+                
+                c.beginPath();
+                c.moveTo(p.x, p.y + p.height);
+                c.lineTo(p.x + 12, p.y);
+                c.lineTo(p.x + p.width - 12, p.y);
+                c.lineTo(p.x + p.width, p.y + p.height);
+                c.closePath();
+                c.fill();
+                c.stroke();
+                c.clip();
+                
+                // Golden warning micro-grid patterns
+                c.strokeStyle = 'rgba(255, 183, 0, 0.28)';
+                c.lineWidth = 1;
+                c.beginPath();
+                for (let offset = 20; offset < p.width - 20; offset += 16) {
+                    c.moveTo(p.x + offset, p.y + 1);
+                    c.lineTo(p.x + offset + 4, p.y + p.height - 1);
+                }
+                c.stroke();
+                
+                // Central vortex loop (Rotating rings detail)
+                const rotation = (Date.now() / 150) % (Math.PI * 2);
+                c.strokeStyle = '#ffffff';
+                c.lineWidth = 1.5;
+                c.beginPath();
+                c.arc(p.x + p.width/2, p.y + p.height/2, 5, rotation, rotation + Math.PI * 1.5);
+                c.stroke();
+                
+                // Quantum golden segments
+                c.fillStyle = this.color;
+                const colW = (p.width - 60) / 4;
+                const pulseHeight = Math.sin(Date.now() / 150) * 1.5;
+                for (let i = 0; i < 4; i++) {
+                    const leftX = p.x + 30 + i * colW;
+                    // Leave space for the center core
+                    if (leftX + colW/2 > p.x + p.width/2 - 10 && leftX + colW/2 < p.x + p.width/2 + 10) continue;
+                    c.fillRect(leftX + 2, p.y + 3 + pulseHeight, colW - 4, p.height - 6);
+                }
+                
+                // Terminal endpoints glow
+                c.fillStyle = '#ffffff';
+                c.shadowColor = '#ffffff';
+                c.shadowBlur = 10;
+                c.beginPath();
+                c.arc(p.x + 4, p.y + p.height/2, 3, 0, Math.PI * 2);
+                c.arc(p.x + p.width - 4, p.y + p.height/2, 3, 0, Math.PI * 2);
+                c.fill();
+                
+                c.restore();
+            }
+        }
+    ],
+    ball: [
+        {
+            name: "CYBER_SPHERE // 默认核心",
+            price: 0,
+            bonus: 0.0,
+            desc: "标准量子小球，中心水流漩涡纹",
+            color: "#00f0ff",
+            trailColor: "rgba(0, 240, 255, ",
+            draw(b, c = ctx) {
+                c.save();
+                c.shadowBlur = 12;
+                c.shadowColor = b.color || this.color;
+                c.fillStyle = b.color || this.color;
+                
+                // Sphere boundary
+                c.beginPath();
+                c.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+                c.fill();
+                
+                // Swirl lines
+                c.strokeStyle = '#050515';
+                c.lineWidth = 1.2;
+                c.beginPath();
+                const rot = (Date.now() / 250) % (Math.PI * 2);
+                for (let a = 0; a < Math.PI * 2; a += Math.PI / 2) {
+                    c.moveTo(b.x, b.y);
+                    const c1x = b.x + (b.radius * 0.45) * Math.cos(a + rot);
+                    const c1y = b.y + (b.radius * 0.45) * Math.sin(a + rot);
+                    const c2x = b.x + (b.radius * 0.8) * Math.cos(a + rot + 0.8);
+                    const c2y = b.y + (b.radius * 0.8) * Math.sin(a + rot + 0.8);
+                    c.bezierCurveTo(c1x, c1y, c2x, c2y, b.x + b.radius * Math.cos(a + rot + 1.2), b.y + b.radius * Math.sin(a + rot + 1.2));
+                }
+                c.stroke();
+                
+                c.restore();
+            }
+        },
+        {
+            name: "PHANTOM_CORE // 幻影之核",
+            price: 100,
+            bonus: 0.025,
+            desc: "高频幽灵粒子，深邃星漩，尺寸增加 2.5%",
+            color: "#aa00ff",
+            trailColor: "rgba(170, 0, 255, ",
+            draw(b, c = ctx) {
+                c.save();
+                c.shadowBlur = 15;
+                c.shadowColor = this.color;
+                c.fillStyle = '#0e031c';
+                c.strokeStyle = this.color;
+                c.lineWidth = 1.5;
+                
+                c.beginPath();
+                c.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+                c.fill();
+                c.stroke();
+                
+                // Arch spiral vortex swirl
+                const rot = -(Date.now() / 160) % (Math.PI * 2);
+                c.strokeStyle = '#ffffff';
+                c.lineWidth = 1.0;
+                c.beginPath();
+                for (let theta = 0; theta < Math.PI * 3.5; theta += 0.1) {
+                    const r = (theta / (Math.PI * 3.5)) * b.radius * 0.85;
+                    const px = b.x + r * Math.cos(theta + rot);
+                    const py = b.y + r * Math.sin(theta + rot);
+                    if (theta === 0) c.moveTo(px, py);
+                    else c.lineTo(px, py);
+                }
+                c.stroke();
+                
+                // Swirl center star glow
+                c.fillStyle = '#ffffff';
+                c.beginPath();
+                c.arc(b.x, b.y, b.radius * 0.25, 0, Math.PI * 2);
+                c.fill();
+                
+                c.restore();
+            }
+        },
+        {
+            name: "NEUTRON_PULSE // 中子脉冲",
+            price: 200,
+            bonus: 0.06,
+            desc: "中子爆缩力场，双旋臂电磁漩涡，尺寸增加 6%",
+            color: "#ff0055",
+            trailColor: "rgba(255, 0, 85, ",
+            draw(b, c = ctx) {
+                c.save();
+                c.shadowBlur = 18;
+                c.shadowColor = this.color;
+                
+                const pulse = Math.sin(Date.now() / 80) * 1.5 + 1.5;
+                c.fillStyle = `rgba(255, 0, 85, 0.25)`;
+                c.beginPath();
+                c.arc(b.x, b.y, b.radius + pulse, 0, Math.PI * 2);
+                c.fill();
+                
+                c.fillStyle = this.color;
+                c.beginPath();
+                c.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+                c.fill();
+                
+                // Dual electric spiral arm swirl
+                c.strokeStyle = '#ffffff';
+                c.lineWidth = 1.2;
+                const rot = (Date.now() / 100) % (Math.PI * 2);
+                for (let arm = 0; arm < 2; arm++) {
+                    const startAngle = rot + arm * Math.PI;
+                    c.beginPath();
+                    for (let theta = 0; theta < Math.PI * 4; theta += 0.15) {
+                        const r = (theta / (Math.PI * 4)) * b.radius * 0.88;
+                        const px = b.x + r * Math.cos(startAngle + theta * 0.7);
+                        const py = b.y + r * Math.sin(startAngle + theta * 0.7);
+                        if (theta === 0) c.moveTo(px, py);
+                        else c.lineTo(px, py);
+                    }
+                    c.stroke();
+                }
+                
+                // Core pulse core dot
+                c.fillStyle = '#ffffff';
+                c.beginPath();
+                c.arc(b.x, b.y, 2, 0, Math.PI * 2);
+                c.fill();
+                
+                c.restore();
+            }
+        },
+        {
+            name: "SUPERNOVA // 超新星爆破",
+            price: 300,
+            bonus: 0.10,
+            desc: "恒星重力坍缩，黑洞引力吸积漩涡，尺寸增加 10%",
+            color: "#ffb700",
+            trailColor: "rgba(255, 183, 0, ",
+            draw(b, c = ctx) {
+                c.save();
+                c.shadowBlur = 22;
+                c.shadowColor = this.color;
+                
+                // Corona arcs rotation
+                const rot = (Date.now() / 300) % (Math.PI * 2);
+                c.strokeStyle = this.color;
+                c.lineWidth = 2.2;
+                c.beginPath();
+                c.arc(b.x, b.y, b.radius + 2.5, rot, rot + Math.PI * 0.75);
+                c.stroke();
+                c.beginPath();
+                c.arc(b.x, b.y, b.radius + 2.5, rot + Math.PI, rot + Math.PI * 1.75);
+                c.stroke();
+                
+                // Solar core gradient
+                const grad = c.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.radius);
+                grad.addColorStop(0, '#ffffff');
+                grad.addColorStop(0.3, '#ffea00');
+                grad.addColorStop(1, '#ff5500');
+                c.fillStyle = grad;
+                c.beginPath();
+                c.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+                c.fill();
+                
+                // Gravitational black swirl (triple spirals)
+                c.strokeStyle = 'rgba(12, 6, 0, 0.9)';
+                c.lineWidth = 1.5;
+                const swirlRot = -(Date.now() / 90) % (Math.PI * 2);
+                for (let arm = 0; arm < 3; arm++) {
+                    const startAngle = swirlRot + arm * (Math.PI * 2 / 3);
+                    c.beginPath();
+                    for (let theta = 0; theta < Math.PI * 3.2; theta += 0.2) {
+                        const r = (theta / (Math.PI * 3.2)) * b.radius * 0.82;
+                        const px = b.x + r * Math.cos(startAngle + theta * 0.85);
+                        const py = b.y + r * Math.sin(startAngle + theta * 0.85);
+                        if (theta === 0) c.moveTo(px, py);
+                        else c.lineTo(px, py);
+                    }
+                    c.stroke();
+                }
+                
+                c.restore();
+            }
+        }
+    ],
+    brick: [
+        {
+            name: "STANDARD_GRID // 标准矩阵",
+            price: 0,
+            bonus: 0.0,
+            desc: "基础数字防御网，横向科技切槽与中心校准条",
+            draw(br, c = ctx) {
+                c.save();
+                c.shadowBlur = 8;
+                c.shadowColor = br.color;
+                const alpha = br.hp / br.maxHp;
+                c.fillStyle = `rgba(${br.hexToRgb(br.color)}, ${alpha * 0.65})`;
+                c.strokeStyle = br.color;
+                c.lineWidth = 1.5;
+                c.fillRect(br.x, br.y, br.width, br.height);
+                c.strokeRect(br.x, br.y, br.width, br.height);
+                
+                // Horizontal panel grooves
+                c.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+                c.lineWidth = 0.8;
+                c.beginPath();
+                c.moveTo(br.x + 4, br.y + 4);
+                c.lineTo(br.x + br.width - 4, br.y + 4);
+                c.moveTo(br.x + 4, br.y + br.height - 4);
+                c.lineTo(br.x + br.width - 4, br.y + br.height - 4);
+                c.stroke();
+                
+                // Center block calibration mark
+                c.fillStyle = 'rgba(255, 255, 255, 0.28)';
+                c.fillRect(br.x + br.width/2 - 5, br.y + br.height/2 - 2, 10, 4);
+                
+                c.restore();
+            }
+        },
+        {
+            name: "CIRCUIT_MATRIX // 电路母版",
+            price: 100,
+            bonus: 0.05,
+            desc: "密集印制集成电路，道具掉落率提升 5%",
+            draw(br, c = ctx) {
+                c.save();
+                c.shadowBlur = 10;
+                c.shadowColor = br.color;
+                const alpha = br.hp / br.maxHp;
+                c.fillStyle = `rgba(${br.hexToRgb(br.color)}, ${alpha * 0.48})`;
+                c.strokeStyle = br.color;
+                c.lineWidth = 1.5;
+                c.fillRect(br.x, br.y, br.width, br.height);
+                c.strokeRect(br.x, br.y, br.width, br.height);
+                
+                // Integrated circuitry traces
+                c.strokeStyle = 'rgba(255, 255, 255, 0.42)';
+                c.lineWidth = 0.8;
+                c.beginPath();
+                // Trace 1
+                c.moveTo(br.x + 6, br.y + 4);
+                c.lineTo(br.x + 18, br.y + 4);
+                c.lineTo(br.x + 24, br.y + 10);
+                c.lineTo(br.x + br.width - 16, br.y + 10);
+                c.lineTo(br.x + br.width - 11, br.y + 5);
+                // Trace 2
+                c.moveTo(br.x + 6, br.y + br.height - 4);
+                c.lineTo(br.x + br.width - 25, br.y + br.height - 4);
+                c.lineTo(br.x + br.width - 19, br.y + br.height/2 + 2);
+                c.lineTo(br.x + br.width - 8, br.y + br.height/2 + 2);
+                c.stroke();
+                
+                // Transistor node dots
+                c.fillStyle = '#ffffff';
+                c.beginPath();
+                c.arc(br.x + 6, br.y + 4, 1.8, 0, Math.PI * 2);
+                c.arc(br.x + br.width - 11, br.y + 5, 1.8, 0, Math.PI * 2);
+                c.arc(br.x + br.width - 8, br.y + br.height/2 + 2, 1.8, 0, Math.PI * 2);
+                c.arc(br.x + 6, br.y + br.height - 4, 1.8, 0, Math.PI * 2);
+                c.fill();
+                
+                c.restore();
+            }
+        },
+        {
+            name: "GLITCH_CYPHER // 故障暗号",
+            price: 200,
+            bonus: 0.10,
+            desc: "防辐射冷却栅格及溢出代码，道具掉落率提升 10%",
+            draw(br, c = ctx) {
+                c.save();
+                c.shadowBlur = 12;
+                c.shadowColor = br.color;
+                const alpha = br.hp / br.maxHp;
+                c.fillStyle = `rgba(${br.hexToRgb(br.color)}, ${alpha * 0.42})`;
+                c.strokeStyle = br.color;
+                c.lineWidth = 2;
+                c.fillRect(br.x, br.y, br.width, br.height);
+                c.strokeRect(br.x, br.y, br.width, br.height);
+                
+                // Dash tech inner frame
+                c.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+                c.lineWidth = 1;
+                c.setLineDash([4, 3]);
+                c.strokeRect(br.x + 4, br.y + 3, br.width - 8, br.height - 6);
+                c.setLineDash([]);
+                
+                // Diagonal cooling slots
+                c.strokeStyle = `rgba(${br.hexToRgb(br.color)}, 0.35)`;
+                c.lineWidth = 1.2;
+                c.beginPath();
+                for (let ox = 8; ox < br.width - 15; ox += 8) {
+                    c.moveTo(br.x + ox, br.y + 5);
+                    c.lineTo(br.x + ox + 6, br.y + br.height - 5);
+                }
+                c.stroke();
+                
+                // Cypher text
+                c.fillStyle = 'rgba(255, 255, 255, 0.45)';
+                c.font = '8px "Share Tech Mono"';
+                const sec = Math.floor(Date.now() / 350) % 3;
+                const msg = sec === 0 ? "A9" : (sec === 1 ? "FX" : "5C");
+                c.fillText(msg, br.x + br.width - 17, br.y + br.height/2 + 3);
+                
+                // Cyber noise glitch generator
+                if (Math.random() < 0.22) {
+                    c.fillStyle = '#ffffff';
+                    c.fillRect(br.x + Math.random() * (br.width - 12), br.y + Math.random() * (br.height - 2), 12, 1.5);
+                }
+                c.restore();
+            }
+        },
+        {
+            name: "AETHER_CORE // 以太核心",
+            price: 300,
+            bonus: 0.15,
+            desc: "结晶结界与以太符文核心，道具掉落率提升 15%",
+            draw(br, c = ctx) {
+                c.save();
+                c.shadowBlur = 15;
+                c.shadowColor = br.color;
+                
+                c.fillStyle = '#060714';
+                c.fillRect(br.x, br.y, br.width, br.height);
+                
+                c.strokeStyle = br.color;
+                c.lineWidth = 2.5;
+                c.strokeRect(br.x, br.y, br.width, br.height);
+                
+                // Crystal hexagon textures
+                c.strokeStyle = `rgba(${br.hexToRgb(br.color)}, 0.25)`;
+                c.lineWidth = 0.8;
+                c.beginPath();
+                for (let ox = br.x + 8; ox < br.x + br.width - 8; ox += 10) {
+                    c.moveTo(ox, br.y + 4);
+                    c.lineTo(ox + 3, br.y + 2);
+                    c.lineTo(ox + 7, br.y + 2);
+                    c.lineTo(ox + 10, br.y + 4);
+                    c.lineTo(ox + 7, br.y + 6);
+                    c.lineTo(ox + 3, br.y + 6);
+                    c.closePath();
+                    
+                    c.moveTo(ox, br.y + br.height - 4);
+                    c.lineTo(ox + 3, br.y + br.height - 6);
+                    c.lineTo(ox + 7, br.y + br.height - 6);
+                    c.lineTo(ox + 10, br.y + br.height - 4);
+                    c.lineTo(ox + 7, br.y + br.height - 2);
+                    c.lineTo(ox + 3, br.y + br.height - 2);
+                    c.closePath();
+                }
+                c.stroke();
+                
+                // Glowing crystal nucleus
+                const grad = c.createRadialGradient(br.x + br.width/2, br.y + br.height/2, 1, br.x + br.width/2, br.y + br.height/2, 11);
+                grad.addColorStop(0, '#ffffff');
+                grad.addColorStop(0.3, br.color);
+                grad.addColorStop(1, 'rgba(0,0,0,0)');
+                c.fillStyle = grad;
+                c.beginPath();
+                c.arc(br.x + br.width/2, br.y + br.height/2, 9, 0, Math.PI * 2);
+                c.fill();
+                
+                // Core orbital ring detail
+                c.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+                c.lineWidth = 1;
+                c.beginPath();
+                c.arc(br.x + br.width/2, br.y + br.height/2, 11, 0, Math.PI * 2);
+                c.stroke();
+                
+                // Corner tech brackets
+                c.strokeStyle = '#ffffff';
+                c.lineWidth = 1;
+                c.beginPath();
+                c.moveTo(br.x + 5, br.y + 1); c.lineTo(br.x + 1, br.y + 1); c.lineTo(br.x + 1, br.y + 5);
+                c.moveTo(br.x + br.width - 5, br.y + 1); c.lineTo(br.x + br.width - 1, br.y + 1); c.lineTo(br.x + br.width - 1, br.y + 5);
+                c.moveTo(br.x + 5, br.y + br.height - 1); c.lineTo(br.x + 1, br.y + br.height - 1); c.lineTo(br.x + 1, br.y + br.height - 5);
+                c.moveTo(br.x + br.width - 5, br.y + br.height - 1); c.lineTo(br.x + br.width - 1, br.y + br.height - 1); c.lineTo(br.x + br.width - 1, br.y + br.height - 5);
+                c.stroke();
+                
+                c.restore();
+            }
+        }
+    ]
+};
+
+// Active Skin Spec Retrievers
+function getPaddleSkinBonus() {
+    if (!state.skins || !state.skins.paddle) return 0;
+    const active = state.skins.paddle.active;
+    const config = SKINS_CONFIG.paddle[active];
+    return config ? config.bonus : 0;
+}
+
+function getBallSkinBonus() {
+    if (!state.skins || !state.skins.ball) return 0;
+    const active = state.skins.ball.active;
+    const config = SKINS_CONFIG.ball[active];
+    return config ? config.bonus : 0;
+}
+
+function getBrickSkinBonus() {
+    if (!state.skins || !state.skins.brick) return 0;
+    const active = state.skins.brick.active;
+    const config = SKINS_CONFIG.brick[active];
+    return config ? config.bonus : 0;
+}
+
+function applyBallSkin() {
+    const radius = 7 * (1 + getBallSkinBonus());
+    const active = state.skins.ball.active;
+    const skin = SKINS_CONFIG.ball[active];
+    const color = skin ? skin.color : '#00f0ff';
+    
+    balls.forEach(b => {
+        b.radius = radius;
+        b.color = color;
+    });
+}
 
 // Canvas and Context
 let canvas, ctx;
@@ -426,38 +1068,30 @@ function updateHUD() {
 // --- ENTITY FACTORIES & BUILDERS ---
 
 function initEntities() {
+    const pBonus = getPaddleSkinBonus();
     paddle = {
-        x: CANVAS_WIDTH / 2 - 60,
+        x: CANVAS_WIDTH / 2 - 60 * (1 + pBonus),
         y: CANVAS_HEIGHT - 35,
-        width: 120,
+        width: 120 * (1 + pBonus),
         height: 14,
-        targetWidth: 120,
+        targetWidth: 120 * (1 + pBonus),
         speed: 10,
         color: '#0044ff',
-        draw() {
-            ctx.save();
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = this.color;
-            ctx.fillStyle = this.color;
-            
-            // Draw stylized cyberpunk shape (angled corners)
-            ctx.beginPath();
-            ctx.moveTo(this.x, this.y + this.height);
-            ctx.lineTo(this.x + 8, this.y);
-            ctx.lineTo(this.x + this.width - 8, this.y);
-            ctx.lineTo(this.x + this.width, this.y + this.height);
-            ctx.closePath();
-            ctx.fill();
+        draw(c = ctx) {
+            const active = state.skins ? state.skins.paddle.active : 0;
+            const skin = SKINS_CONFIG.paddle[active] || SKINS_CONFIG.paddle[0];
+            skin.draw(this, c);
             
             // Draw laser cannons if laser mod is active
-            if (activeMods['LASER']) {
-                ctx.fillStyle = '#ff0055';
-                ctx.shadowColor = '#ff0055';
-                ctx.fillRect(this.x - 4, this.y - 6, 6, 12);
-                ctx.fillRect(this.x + this.width - 2, this.y - 6, 6, 12);
+            if (activeMods['LASER'] && c === ctx) {
+                c.save();
+                c.fillStyle = '#ff0055';
+                c.shadowBlur = 15;
+                c.shadowColor = '#ff0055';
+                c.fillRect(this.x - 4, this.y - 6, 6, 12);
+                c.fillRect(this.x + this.width - 2, this.y - 6, 6, 12);
+                c.restore();
             }
-            
-            ctx.restore();
         }
     };
     
@@ -492,8 +1126,8 @@ function spawnBall(x, y, attachToPaddle = false) {
         y: y,
         vx: speed * Math.sin(angle),
         vy: -speed * Math.cos(angle),
-        radius: 7,
-        color: '#00f0ff',
+        radius: 7 * (1 + getBallSkinBonus()),
+        color: (SKINS_CONFIG.ball[state.skins ? state.skins.ball.active : 0] || SKINS_CONFIG.ball[0]).color,
         attached: attachToPaddle,
         trail: [],
         update() {
@@ -531,27 +1165,23 @@ function spawnBall(x, y, attachToPaddle = false) {
                 triggerScreenShake(2);
             }
         },
-        draw() {
+        draw(c = ctx) {
+            const active = state.skins ? state.skins.ball.active : 0;
+            const skin = SKINS_CONFIG.ball[active] || SKINS_CONFIG.ball[0];
+            
             // Draw trail
-            ctx.save();
+            c.save();
             this.trail.forEach((pt, idx) => {
                 const alpha = (idx + 1) / this.trail.length * 0.3;
-                ctx.fillStyle = `rgba(0, 240, 255, ${alpha})`;
-                ctx.beginPath();
-                ctx.arc(pt.x, pt.y, this.radius * (idx / this.trail.length), 0, Math.PI * 2);
-                ctx.fill();
+                c.fillStyle = `${skin.trailColor}${alpha})`;
+                c.beginPath();
+                c.arc(pt.x, pt.y, this.radius * (idx / this.trail.length), 0, Math.PI * 2);
+                c.fill();
             });
-            ctx.restore();
+            c.restore();
             
             // Draw ball
-            ctx.save();
-            ctx.shadowBlur = 12;
-            ctx.shadowColor = this.color;
-            ctx.fillStyle = this.color;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
+            skin.draw(this, c);
         }
     });
 }
@@ -725,37 +1355,15 @@ function generateBricks() {
                         triggerScreenShake(3);
                     }
                     
-                    // Power-up chance (5% rate)
-                    if (Math.random() < 0.05) {
+                    // Power-up chance (5% rate + brick skin bonus)
+                    if (Math.random() < 0.05 + getBrickSkinBonus()) {
                         dropPowerup(this.x + this.width/2, this.y + this.height);
                     }
                 },
-                draw() {
-                    ctx.save();
-                    
-                    // Glow border
-                    ctx.shadowBlur = 8;
-                    ctx.shadowColor = this.color;
-                    
-                    // Semi-transparent interior depending on HP
-                    const alpha = this.hp / this.maxHp;
-                    ctx.fillStyle = `rgba(${this.hexToRgb(this.color)}, ${alpha * 0.7})`;
-                    ctx.strokeStyle = this.color;
-                    ctx.lineWidth = 1.5;
-                    
-                    // Draw clean box
-                    ctx.fillRect(this.x, this.y, this.width, this.height);
-                    ctx.strokeRect(this.x, this.y, this.width, this.height);
-                    
-                    // Subtle panel diagonal graphic lines inside the brick
-                    ctx.lineWidth = 0.5;
-                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-                    ctx.beginPath();
-                    ctx.moveTo(this.x + 5, this.y + 2);
-                    ctx.lineTo(this.x + this.width - 5, this.y + this.height - 2);
-                    ctx.stroke();
-                    
-                    ctx.restore();
+                draw(c = ctx) {
+                    const active = state.skins ? state.skins.brick.active : 0;
+                    const skin = SKINS_CONFIG.brick[active] || SKINS_CONFIG.brick[0];
+                    skin.draw(this, c);
                 },
                 hexToRgb(hex) {
                     const r = parseInt(hex.slice(1, 3), 16);
@@ -842,7 +1450,7 @@ function applyPowerup(pType, pConf) {
     
     switch(pType) {
         case 'WIDE':
-            paddle.targetWidth = 180;
+            paddle.targetWidth = 180 * (1 + getPaddleSkinBonus());
             paddle.color = '#0044ff';
             activeMods['WIDE'] = 500; // Duration in frames
             break;
@@ -978,7 +1586,7 @@ function updatePhysics() {
             if (activeMods[m] <= 0) {
                 // Mod expired
                 if (m === 'WIDE') {
-                    paddle.targetWidth = 120;
+                    paddle.targetWidth = 120 * (1 + getPaddleSkinBonus());
                     paddle.color = '#0044ff';
                 }
                 addLogLine(`SYSTEM ALERT: MOD EXPIRED - ${POWERUP_TYPES[m].label}`);
@@ -1265,7 +1873,7 @@ const SHOP_ITEMS = [
         color: '#0044ff',
         buy() {
             activeMods['WIDE'] = (activeMods['WIDE'] || 0) + 500;
-            paddle.targetWidth = 180;
+            paddle.targetWidth = 180 * (1 + getPaddleSkinBonus());
             paddle.color = '#0044ff';
         }
     },
@@ -1312,6 +1920,15 @@ function openShop(origin = 'GAME') {
     state.mode = 'SHOP';
     state.shopOrigin = origin; // 'GAME' or 'MENU'
     
+    // Reset shop tab to upgrades initially
+    state.currentShopTab = 'upgrades';
+    const tabUpgrades = document.getElementById('shop-tab-upgrades');
+    const tabSkins = document.getElementById('shop-tab-skins');
+    const skinCats = document.getElementById('skin-cats');
+    if (tabUpgrades) tabUpgrades.classList.add('active');
+    if (tabSkins) tabSkins.classList.remove('active');
+    if (skinCats) skinCats.classList.add('hidden');
+    
     // Update credits display
     document.getElementById('shop-credits-val').innerText = Math.floor(state.score);
     
@@ -1337,70 +1954,290 @@ function renderShopItems() {
     const container = document.querySelector('.shop-items-container');
     container.innerHTML = '';
     
-    SHOP_ITEMS.forEach(item => {
-        const card = document.createElement('div');
-        card.className = 'shop-item-card';
-        
-        const title = document.createElement('div');
-        title.className = 'shop-item-title';
-        title.style.color = item.color;
-        title.innerText = item.name;
-        
-        const desc = document.createElement('div');
-        desc.className = 'shop-item-desc';
-        desc.innerText = item.desc;
-        
-        const buyBtn = document.createElement('button');
-        buyBtn.className = 'cyber-btn cyan-theme shop-item-buy-btn';
-        
-        // Check if affordable and if conditions met
-        let canBuy = Math.floor(state.score) >= item.price;
-        if (item.id === 'LIFE' && state.lives >= 3) {
-            canBuy = false;
-        }
-        
-        if (!canBuy) {
-            buyBtn.classList.add('disabled');
-        }
-        
-        let btnText = `BUY // ${item.price} CR`;
-        if (item.id === 'LIFE' && state.lives >= 3) {
-            btnText = 'MAX LIVES';
-        }
-        
-        buyBtn.innerHTML = `
-            <span class="btn-slice"></span>
-            <span class="btn-text">${btnText}</span>
-        `;
-        
-        buyBtn.addEventListener('click', () => {
-            if (Math.floor(state.score) >= item.price) {
-                if (item.id === 'LIFE' && state.lives >= 3) return;
-                
-                state.score -= item.price;
-                item.buy();
-                playSound('powerup');
-                
-                // Save credits immediately after purchase
-                saveCredits();
-                
-                // Update diagnostic lists or HUD
-                updateHUD();
-                renderPowerupListHUD();
-                
-                // Update shop displays
-                document.getElementById('shop-credits-val').innerText = Math.floor(state.score);
-                renderShopItems();
-                
-                addLogLine(`SHOP: PURCHASED ${item.id}`);
+    if (state.currentShopTab === 'upgrades') {
+        SHOP_ITEMS.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'shop-item-card';
+            
+            const title = document.createElement('div');
+            title.className = 'shop-item-title';
+            title.style.color = item.color;
+            title.innerText = item.name;
+            
+            const desc = document.createElement('div');
+            desc.className = 'shop-item-desc';
+            desc.innerText = item.desc;
+            
+            const buyBtn = document.createElement('button');
+            buyBtn.className = 'cyber-btn cyan-theme shop-item-buy-btn';
+            
+            // Check if affordable and if conditions met
+            let canBuy = Math.floor(state.score) >= item.price;
+            if (item.id === 'LIFE' && state.lives >= 3) {
+                canBuy = false;
             }
+            
+            if (!canBuy) {
+                buyBtn.classList.add('disabled');
+            }
+            
+            let btnText = `BUY // ${item.price} CR`;
+            if (item.id === 'LIFE' && state.lives >= 3) {
+                btnText = 'MAX LIVES';
+            }
+            
+            buyBtn.innerHTML = `
+                <span class="btn-slice"></span>
+                <span class="btn-text">${btnText}</span>
+            `;
+            
+            buyBtn.addEventListener('click', () => {
+                if (Math.floor(state.score) >= item.price) {
+                    if (item.id === 'LIFE' && state.lives >= 3) return;
+                    
+                    state.score -= item.price;
+                    item.buy();
+                    playSound('powerup');
+                    
+                    // Save credits immediately after purchase
+                    saveCredits();
+                    
+                    // Update diagnostic lists or HUD
+                    updateHUD();
+                    renderPowerupListHUD();
+                    
+                    // Update shop displays
+                    document.getElementById('shop-credits-val').innerText = Math.floor(state.score);
+                    renderShopItems();
+                    
+                    addLogLine(`SHOP: PURCHASED ${item.id}`);
+                }
+            });
+            
+            card.appendChild(title);
+            card.appendChild(desc);
+            card.appendChild(buyBtn);
+            container.appendChild(card);
         });
+    } else {
+        const category = state.currentSkinCategory;
+        const skins = SKINS_CONFIG[category];
         
-        card.appendChild(title);
-        card.appendChild(desc);
-        card.appendChild(buyBtn);
-        container.appendChild(card);
+        skins.forEach((skin, index) => {
+            const card = document.createElement('div');
+            card.className = 'shop-item-card skin-item-card';
+            const isActive = state.skins[category].active === index;
+            const isOwned = state.skins[category].owned[index];
+            
+            if (isActive) {
+                card.classList.add('equipped-card');
+            }
+            
+            const title = document.createElement('div');
+            title.className = 'shop-item-title';
+            title.style.color = skin.color || '#ffb700';
+            title.innerText = skin.name;
+            
+            const canvas = document.createElement('canvas');
+            canvas.className = 'skin-preview-canvas';
+            canvas.width = 110;
+            canvas.height = 45;
+            
+            const desc = document.createElement('div');
+            desc.className = 'shop-item-desc';
+            desc.innerText = skin.desc;
+            
+            const buyBtn = document.createElement('button');
+            buyBtn.className = 'cyber-btn cyan-theme shop-item-buy-btn';
+            
+            if (isActive) {
+                buyBtn.innerHTML = `
+                    <span class="btn-slice"></span>
+                    <span class="btn-text">EQUIPPED // 使用中</span>
+                `;
+                buyBtn.classList.add('disabled');
+            } else if (isOwned) {
+                buyBtn.innerHTML = `
+                    <span class="btn-slice"></span>
+                    <span class="btn-text">EQUIP // 装配</span>
+                `;
+                buyBtn.addEventListener('click', () => {
+                    state.skins[category].active = index;
+                    playSound('powerup');
+                    saveCredits();
+                    
+                    // Apply skin immediately to game elements
+                    if (category === 'paddle') {
+                        paddle.targetWidth = (activeMods['WIDE'] ? 180 : 120) * (1 + getPaddleSkinBonus());
+                    } else if (category === 'ball') {
+                        applyBallSkin();
+                    }
+                    
+                    renderShopItems();
+                    addLogLine(`SKIN: EQUIPPED ${category.toUpperCase()} SKIN - ${skin.name}`);
+                });
+            } else {
+                const canBuy = Math.floor(state.score) >= skin.price;
+                if (!canBuy) {
+                    buyBtn.classList.add('disabled');
+                }
+                
+                buyBtn.innerHTML = `
+                    <span class="btn-slice"></span>
+                    <span class="btn-text">BUY // ${skin.price} CR</span>
+                `;
+                buyBtn.addEventListener('click', () => {
+                    if (Math.floor(state.score) >= skin.price) {
+                        state.score -= skin.price;
+                        state.skins[category].owned[index] = true;
+                        state.skins[category].active = index;
+                        playSound('powerup');
+                        saveCredits();
+                        
+                        // Apply skin immediately to game elements
+                        if (category === 'paddle') {
+                            paddle.targetWidth = (activeMods['WIDE'] ? 180 : 120) * (1 + getPaddleSkinBonus());
+                        } else if (category === 'ball') {
+                            applyBallSkin();
+                        }
+                        
+                        // Update credits display
+                        document.getElementById('shop-credits-val').innerText = Math.floor(state.score);
+                        renderShopItems();
+                        addLogLine(`SKIN: BOUGHT & EQUIPPED ${category.toUpperCase()} SKIN - ${skin.name}`);
+                    }
+                });
+            }
+            
+            card.appendChild(title);
+            card.appendChild(canvas);
+            card.appendChild(desc);
+            card.appendChild(buyBtn);
+            container.appendChild(card);
+            
+            // Draw visual preview on the canvas
+            drawSkinPreview(canvas, category, skin, index);
+        });
+    }
+}
+
+function switchShopTab(tab) {
+    state.currentShopTab = tab;
+    
+    const tabUpgrades = document.getElementById('shop-tab-upgrades');
+    const tabSkins = document.getElementById('shop-tab-skins');
+    const skinCats = document.getElementById('skin-cats');
+    
+    if (tab === 'upgrades') {
+        if (tabUpgrades) tabUpgrades.classList.add('active');
+        if (tabSkins) tabSkins.classList.remove('active');
+        if (skinCats) skinCats.classList.add('hidden');
+    } else {
+        if (tabUpgrades) tabUpgrades.classList.remove('active');
+        if (tabSkins) tabSkins.classList.add('active');
+        if (skinCats) skinCats.classList.remove('hidden');
+        switchSkinCategory(state.currentSkinCategory || 'paddle');
+    }
+    
+    renderShopItems();
+}
+
+function switchSkinCategory(cat) {
+    state.currentSkinCategory = cat;
+    
+    ['paddle', 'ball', 'brick'].forEach(c => {
+        const btn = document.getElementById(`skin-cat-${c}`);
+        if (btn) {
+            if (c === cat) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        }
     });
+    
+    renderShopItems();
+}
+
+function drawSkinPreview(canvas, category, skin, index) {
+    const pCtx = canvas.getContext('2d');
+    pCtx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw background
+    pCtx.fillStyle = '#05050a';
+    pCtx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw grid lines
+    pCtx.strokeStyle = 'rgba(26, 28, 53, 0.4)';
+    pCtx.lineWidth = 0.5;
+    pCtx.beginPath();
+    for (let x = 10; x < canvas.width; x += 15) {
+        pCtx.moveTo(x, 0);
+        pCtx.lineTo(x, canvas.height);
+    }
+    for (let y = 10; y < canvas.height; y += 15) {
+        pCtx.moveTo(0, y);
+        pCtx.lineTo(canvas.width, y);
+    }
+    pCtx.stroke();
+    
+    if (category === 'paddle') {
+        const padWidth = 65;
+        const padHeight = 8;
+        const mockP = {
+            x: (canvas.width - padWidth) / 2,
+            y: (canvas.height - padHeight) / 2,
+            width: padWidth,
+            height: padHeight,
+            color: skin.color || '#0044ff'
+        };
+        skin.draw(mockP, pCtx);
+    } else if (category === 'ball') {
+        const radius = 6;
+        const mockB = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            radius: radius,
+            color: skin.color || '#00f0ff',
+            trail: [
+                { x: canvas.width / 2 - 25, y: canvas.height / 2 },
+                { x: canvas.width / 2 - 20, y: canvas.height / 2 },
+                { x: canvas.width / 2 - 15, y: canvas.height / 2 },
+                { x: canvas.width / 2 - 10, y: canvas.height / 2 },
+                { x: canvas.width / 2 - 5, y: canvas.height / 2 }
+            ]
+        };
+        pCtx.save();
+        mockB.trail.forEach((pt, idx) => {
+            const alpha = (idx + 1) / mockB.trail.length * 0.3;
+            pCtx.fillStyle = `${skin.trailColor}${alpha})`;
+            pCtx.beginPath();
+            pCtx.arc(pt.x, pt.y, mockB.radius * (idx / mockB.trail.length), 0, Math.PI * 2);
+            pCtx.fill();
+        });
+        pCtx.restore();
+        
+        skin.draw(mockB, pCtx);
+    } else if (category === 'brick') {
+        const brWidth = 50;
+        const brHeight = 15;
+        const mockBr = {
+            x: (canvas.width - brWidth) / 2,
+            y: (canvas.height - brHeight) / 2,
+            width: brWidth,
+            height: brHeight,
+            hp: 3,
+            maxHp: 3,
+            color: skin.price === 100 ? '#00ffcc' : (skin.price === 200 ? '#ff00ff' : (skin.price === 300 ? '#ffb700' : '#00f0ff')),
+            hexToRgb(hex) {
+                const r = parseInt(hex.slice(1, 3), 16);
+                const g = parseInt(hex.slice(3, 5), 16);
+                const b = parseInt(hex.slice(5, 7), 16);
+                return `${r}, ${g}, ${b}`;
+            }
+        };
+        skin.draw(mockBr, pCtx);
+    }
 }
 
 function handleShopNext() {
@@ -1690,6 +2527,13 @@ function setupInputListeners() {
         exitGameWithSave();
     });
     
+    // Wire up shop tabs
+    document.getElementById('shop-tab-upgrades').addEventListener('click', () => switchShopTab('upgrades'));
+    document.getElementById('shop-tab-skins').addEventListener('click', () => switchShopTab('skins'));
+    document.getElementById('skin-cat-paddle').addEventListener('click', () => switchSkinCategory('paddle'));
+    document.getElementById('skin-cat-ball').addEventListener('click', () => switchSkinCategory('ball'));
+    document.getElementById('skin-cat-brick').addEventListener('click', () => switchSkinCategory('brick'));
+    
     // Audio Toggle Action
     const audioBtn = document.getElementById('audio-toggle');
     audioBtn.addEventListener('click', () => {
@@ -1725,6 +2569,26 @@ function loadCredits() {
     
     state.multPurchases = parseInt(localStorage.getItem('cyberbreak_mult_purchases')) || 0;
     state.lifePurchases = parseInt(localStorage.getItem('cyberbreak_life_purchases')) || 0;
+    
+    try {
+        const skinsCached = localStorage.getItem('cyberbreak_skins');
+        if (skinsCached) {
+            state.skins = JSON.parse(skinsCached);
+        } else {
+            state.skins = {
+                paddle: { owned: [true, false, false, false], active: 0 },
+                ball: { owned: [true, false, false, false], active: 0 },
+                brick: { owned: [true, false, false, false], active: 0 }
+            };
+        }
+    } catch(e) {
+        console.error("Failed to load skins config", e);
+        state.skins = {
+            paddle: { owned: [true, false, false, false], active: 0 },
+            ball: { owned: [true, false, false, false], active: 0 },
+            brick: { owned: [true, false, false, false], active: 0 }
+        };
+    }
 }
 
 // Save persistent score/credits
@@ -1732,11 +2596,12 @@ function saveCredits() {
     localStorage.setItem('cyberbreak_credits', state.score.toFixed(2));
     localStorage.setItem('cyberbreak_mult_purchases', state.multPurchases || 0);
     localStorage.setItem('cyberbreak_life_purchases', state.lifePurchases || 0);
+    localStorage.setItem('cyberbreak_skins', JSON.stringify(state.skins));
 }
 
 // Reset Endless progress, credits, and upgrades
 function resetEndlessProgress() {
-    if (confirm("CRITICAL WARNING: WIPE ALL GRID NODES, CREDITS & SYSTEM UPGRADES? // 确定执行系统冷启动，重置无尽关卡、积分和所有加成？")) {
+    if (confirm("CRITICAL WARNING: WIPE ALL GRID NODES, CREDITS & SYSTEM UPGRADES? // 确定执行系统冷启动，重置无尽关卡、积分 and all skins?")) {
         // Clear Endless saved run progress
         clearEndlessState();
         
@@ -1746,6 +2611,13 @@ function resetEndlessProgress() {
         // Reset purchase counters
         state.multPurchases = 0;
         state.lifePurchases = 0;
+        
+        // Reset skins
+        state.skins = {
+            paddle: { owned: [true, false, false, false], active: 0 },
+            ball: { owned: [true, false, false, false], active: 0 },
+            brick: { owned: [true, false, false, false], active: 0 }
+        };
         
         // Save reset variables to local storage
         saveCredits();
@@ -1850,7 +2722,7 @@ function loadEndlessState() {
         bricks = (saveData.bricks || []).map(bData => createBrickObject(bData));
         
         // Rebuild paddle configuration
-        paddle.targetWidth = activeMods['WIDE'] ? 180 : 120;
+        paddle.targetWidth = (activeMods['WIDE'] ? 180 : 120) * (1 + getPaddleSkinBonus());
         paddle.width = paddle.targetWidth;
         paddle.color = '#0044ff';
         

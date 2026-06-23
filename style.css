@@ -801,3 +801,82 @@ h1.glitch::after {
     align-items: center;
 }
 
+/* Shop Tabs */
+.shop-tabs-nav {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 12px;
+    width: 90%;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 5px;
+    justify-content: center;
+}
+.shop-tab-btn {
+    background: transparent;
+    border: none;
+    color: #888;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 6px 12px;
+    transition: all 0.3s;
+    border-bottom: 2px solid transparent;
+}
+.shop-tab-btn:hover {
+    color: var(--neon-cyan);
+}
+.shop-tab-btn.active {
+    color: var(--neon-cyan);
+    border-bottom: 2px solid var(--neon-cyan);
+    text-shadow: var(--shadow-cyan);
+}
+
+/* Skin Category Buttons */
+.skin-categories-nav {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    width: 90%;
+    justify-content: center;
+}
+.skin-cat-btn {
+    background: rgba(20, 22, 40, 0.6);
+    border: 1px solid var(--border-color);
+    color: #aaa;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    padding: 6px 16px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+}
+.skin-cat-btn:hover {
+    border-color: var(--neon-magenta);
+    color: var(--neon-magenta);
+}
+.skin-cat-btn.active {
+    background: rgba(255, 0, 85, 0.15);
+    border-color: var(--neon-magenta);
+    color: var(--neon-magenta);
+    box-shadow: 0 0 8px rgba(255, 0, 85, 0.3);
+}
+
+/* Skin Item Cards and Mini Canvases */
+.skin-preview-canvas {
+    border: 1px dashed var(--border-color);
+    border-radius: 4px;
+    background: #05050a;
+    margin: 5px 0;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.8);
+    display: block;
+}
+.shop-item-card.skin-item-card {
+    border-color: #2a2e4d;
+}
+.shop-item-card.skin-item-card.equipped-card {
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+    background: rgba(0, 240, 255, 0.02);
+}
+
