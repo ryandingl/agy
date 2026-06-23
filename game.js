@@ -30,6 +30,7 @@ const state = {
         coreTemp: 37,
     },
     screenShake: 0,
+    inputMode: 'keyboard',
     currentShopTab: 'upgrades',
     currentSkinCategory: 'paddle',
     skins: {
@@ -1558,13 +1559,15 @@ function renderPowerupListHUD() {
 
 function updatePhysics() {
     // 1. Move Paddle
-    let targetX = mouseX - paddle.width / 2;
-    // Keyboard adjustments
-    if (keys['ArrowLeft'] || keys['a'] || keys['A']) {
-        targetX = paddle.x - paddle.speed;
-    }
-    if (keys['ArrowRight'] || keys['d'] || keys['D']) {
-        targetX = paddle.x + paddle.speed;
+    let targetX = paddle.x;
+    if (state.inputMode === 'mouse') {
+        targetX = mouseX - paddle.width / 2;
+    } else {
+        if (keys['ArrowLeft'] || keys['a'] || keys['A']) {
+            targetX = paddle.x - paddle.speed;
+        } else if (keys['ArrowRight'] || keys['d'] || keys['D']) {
+            targetX = paddle.x + paddle.speed;
+        }
     }
     
     // Clamp to border
@@ -2441,6 +2444,10 @@ function setupInputListeners() {
     window.addEventListener('keydown', e => {
         keys[e.key] = true;
         
+        if (['ArrowLeft', 'ArrowRight', 'a', 'A', 'd', 'D'].includes(e.key)) {
+            state.inputMode = 'keyboard';
+        }
+        
         // Launch ball stuck to paddle
         if (e.key === ' ' || e.key === 'Spacebar') {
             e.preventDefault();
@@ -2467,6 +2474,7 @@ function setupInputListeners() {
     
     // Mouse movement within Canvas
     canvas.addEventListener('mousemove', e => {
+        state.inputMode = 'mouse';
         const rect = canvas.getBoundingClientRect();
         // Scale mouse client coordinates to match logical canvas width
         const clientXInCanvas = e.clientX - rect.left;
@@ -2476,6 +2484,7 @@ function setupInputListeners() {
     // Mobile / Touch controls
     const handleTouch = e => {
         if (e.touches.length > 0) {
+            state.inputMode = 'mouse';
             const rect = canvas.getBoundingClientRect();
             const touchXInCanvas = e.touches[0].clientX - rect.left;
             mouseX = (touchXInCanvas / rect.width) * CANVAS_WIDTH;
