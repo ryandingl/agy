@@ -683,38 +683,106 @@ const SKINS_CONFIG = {
             desc: "复古80s霓虹红日与透视地平线。加成：击碎方块后倍率每次额外增加 0.15，且挡板连击衰减减缓 30%",
             draw(c) {
                 c.save();
+                
+                // Dark retro background gradient
+                const bgGrad = c.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+                bgGrad.addColorStop(0, '#04020a');
+                bgGrad.addColorStop(0.5, '#0e051d');
+                bgGrad.addColorStop(1, '#020005');
+                c.fillStyle = bgGrad;
+                c.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                // Stars in upper sky
+                c.save();
+                for (let i = 0; i < 25; i++) {
+                    const x = (Math.sin(i * 456.789) * 0.5 + 0.5) * CANVAS_WIDTH;
+                    const y = (Math.cos(i * 987.654) * 0.5 + 0.5) * 300;
+                    const twinkle = Math.sin(Date.now() / 500 + i) * 0.4 + 0.6;
+                    c.fillStyle = `rgba(255, 0, 170, ${twinkle * 0.5})`;
+                    c.beginPath();
+                    c.arc(x, y, i % 3 === 0 ? 1.5 : 1, 0, Math.PI * 2);
+                    c.fill();
+                }
+                c.restore();
+
                 // Draw retro neon sun
                 const sunX = CANVAS_WIDTH / 2;
-                const sunY = 150;
-                const sunRadius = 70;
+                const sunY = 170;
+                const sunPulse = 1 + Math.sin(Date.now() / 1200) * 0.03;
+                const sunRadius = 75 * sunPulse;
+                
+                c.save();
+                c.shadowBlur = 30;
+                c.shadowColor = '#ff00aa';
                 const grad = c.createLinearGradient(sunX, sunY - sunRadius, sunX, sunY + sunRadius);
-                grad.addColorStop(0, '#ff0077');
-                grad.addColorStop(1, '#ffaa00');
+                grad.addColorStop(0, '#ff0066');
+                grad.addColorStop(0.5, '#ff00aa');
+                grad.addColorStop(1, '#ffdd00');
                 c.fillStyle = grad;
                 c.beginPath();
                 c.arc(sunX, sunY, sunRadius, 0, Math.PI * 2);
                 c.fill();
+                c.restore();
                 
-                // Sun strip cutouts
-                c.fillStyle = '#050508';
-                for (let y = sunY - 40; y < sunY + sunRadius; y += 14) {
-                    const barHeight = (y - (sunY - 40)) / 10 + 2;
+                // Sun horizontal line cuts
+                c.fillStyle = '#0e051d';
+                for (let y = sunY - 40; y < sunY + sunRadius + 10; y += 12) {
+                    const barHeight = (y - (sunY - 40)) / 9 + 1;
                     c.fillRect(sunX - sunRadius - 10, y, (sunRadius + 10) * 2, barHeight);
                 }
                 
-                // Horizon line and grid
-                c.strokeStyle = 'rgba(255, 0, 128, 0.25)';
-                c.lineWidth = 1.2;
                 const gridY = 320;
                 const vanishingX = CANVAS_WIDTH / 2;
-                
+
+                // Cyberpunk Mountain Silhouettes
+                c.save();
+                // Far mountain range
+                c.fillStyle = '#05020c';
+                c.strokeStyle = 'rgba(255, 0, 170, 0.3)';
+                c.lineWidth = 1.5;
                 c.beginPath();
                 c.moveTo(0, gridY);
-                c.lineTo(CANVAS_WIDTH, gridY);
+                c.lineTo(120, gridY - 70);
+                c.lineTo(240, gridY - 30);
+                c.lineTo(380, gridY - 90);
+                c.lineTo(520, gridY - 40);
+                c.lineTo(680, gridY - 110);
+                c.lineTo(800, gridY);
+                c.fill();
                 c.stroke();
                 
-                // Vertical lines
-                const numLines = 16;
+                // Near mountain range
+                c.fillStyle = '#0a0316';
+                c.strokeStyle = 'rgba(0, 255, 255, 0.45)';
+                c.lineWidth = 1.5;
+                c.shadowBlur = 10;
+                c.shadowColor = '#00ffff';
+                c.beginPath();
+                c.moveTo(0, gridY);
+                c.lineTo(80, gridY - 40);
+                c.lineTo(200, gridY - 15);
+                c.lineTo(320, gridY - 50);
+                c.lineTo(480, gridY - 20);
+                c.lineTo(600, gridY - 60);
+                c.lineTo(720, gridY - 30);
+                c.lineTo(800, gridY);
+                c.fill();
+                c.stroke();
+                c.restore();
+
+                // Horizon glow
+                const horizGlow = c.createLinearGradient(0, gridY - 15, 0, gridY + 15);
+                horizGlow.addColorStop(0, 'rgba(0, 255, 255, 0)');
+                horizGlow.addColorStop(0.5, 'rgba(0, 255, 255, 0.4)');
+                horizGlow.addColorStop(1, 'rgba(0, 255, 255, 0)');
+                c.fillStyle = horizGlow;
+                c.fillRect(0, gridY - 15, CANVAS_WIDTH, 30);
+
+                // Perspective vertical grid lines (glowing)
+                c.save();
+                c.strokeStyle = 'rgba(0, 255, 255, 0.25)';
+                c.lineWidth = 1.5;
+                const numLines = 18;
                 for (let i = 0; i <= numLines; i++) {
                     const targetX = (i / numLines) * CANVAS_WIDTH;
                     c.beginPath();
@@ -722,12 +790,18 @@ const SKINS_CONFIG = {
                     c.lineTo(targetX, CANVAS_HEIGHT);
                     c.stroke();
                 }
+                c.restore();
                 
-                // Scrolling horizontal lines
-                const time = (Date.now() / 35) % 100;
+                // Perspective horizontal lines (moving)
+                c.save();
+                c.strokeStyle = 'rgba(255, 0, 170, 0.45)';
+                c.shadowBlur = 8;
+                c.shadowColor = '#ff00aa';
+                c.lineWidth = 1.5;
+                const time = (Date.now() / 25) % 100;
                 for (let i = 0; i < 9; i++) {
                     const ratio = ((i * 30 + time) / 300);
-                    const y = gridY + (CANVAS_HEIGHT - gridY) * Math.pow(ratio, 2.5);
+                    const y = gridY + (CANVAS_HEIGHT - gridY) * Math.pow(ratio, 2.3);
                     if (y > gridY && y < CANVAS_HEIGHT) {
                         c.beginPath();
                         c.moveTo(0, y);
@@ -735,6 +809,8 @@ const SKINS_CONFIG = {
                         c.stroke();
                     }
                 }
+                c.restore();
+                
                 c.restore();
             }
         },
@@ -745,31 +821,58 @@ const SKINS_CONFIG = {
             desc: "黑客帝国数码雨流注。加成：过关积分结算奖励提升 25%，且吃掉道具时额外奖 10 CR",
             draw(c) {
                 c.save();
-                c.fillStyle = 'rgba(0, 5, 2, 0.45)';
+                
+                // Background dark shade
+                c.fillStyle = 'rgba(1, 3, 2, 0.5)';
                 c.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
                 
-                c.font = '9px "Share Tech Mono", monospace';
-                const charWidth = 16;
-                const cols = Math.floor(CANVAS_WIDTH / charWidth);
-                for (let i = 0; i < cols; i++) {
-                    const speed = 0.15 + (i % 7) * 0.05;
-                    const yOffset = (Date.now() * speed) % (CANVAS_HEIGHT + 200) - 100;
+                const time = Date.now();
+                
+                // Draw 3 layers of digital rain for 3D depth
+                const layers = [
+                    { size: 7, cols: 50, speedMult: 0.08, opacity: 0.15, length: 10, color: 'rgba(0, 120, 20, ' },
+                    { size: 10, cols: 40, speedMult: 0.15, opacity: 0.35, length: 15, color: 'rgba(0, 200, 40, ' },
+                    { size: 15, cols: 25, speedMult: 0.25, opacity: 0.7, length: 18, color: 'rgba(10, 255, 80, ' }
+                ];
+                
+                layers.forEach((layer) => {
+                    c.font = `bold ${layer.size}px "Share Tech Mono", monospace`;
+                    const charWidth = CANVAS_WIDTH / layer.cols;
                     
-                    for (let charIdx = 0; charIdx < 12; charIdx++) {
-                        const charY = yOffset - charIdx * 14;
-                        if (charY > 0 && charY < CANVAS_HEIGHT) {
-                            const alpha = (12 - charIdx) / 12 * 0.4;
-                            c.fillStyle = `rgba(5, 255, 80, ${alpha})`;
-                            const char = (Math.abs(Math.sin(i * 10 + charIdx * 20)) < 0.5) ? '0' : '1';
-                            c.fillText(char, i * charWidth + 4, charY);
-                            
-                            if (charIdx === 0) {
-                                c.fillStyle = 'rgba(255, 255, 255, 0.75)';
-                                c.fillText(char, i * charWidth + 4, charY);
+                    for (let i = 0; i < layer.cols; i++) {
+                        // Unique pseudo-random variables based on column index
+                        const colSeed = Math.sin(i * 45.67) * 987.65;
+                        const speed = layer.speedMult * (1.0 + Math.abs(colSeed % 0.5));
+                        const yOffset = (time * speed) % (CANVAS_HEIGHT + 300) - 150;
+                        
+                        // Lead glow
+                        if (layer.size === 15) {
+                            c.shadowBlur = 10;
+                            c.shadowColor = '#0f8';
+                        } else {
+                            c.shadowBlur = 0;
+                        }
+                        
+                        for (let charIdx = 0; charIdx < layer.length; charIdx++) {
+                            const charY = yOffset - charIdx * (layer.size + 3);
+                            if (charY > -20 && charY < CANVAS_HEIGHT + 20) {
+                                const alpha = ((layer.length - charIdx) / layer.length) * layer.opacity;
+                                c.fillStyle = `${layer.color}${alpha})`;
+                                
+                                // Randomly select binary digit or Matrix-like characters
+                                const randChar = (Math.abs(Math.sin(i * 12 + charIdx * 34 + Math.floor(time / 100))) < 0.5) ? '0' : '1';
+                                c.fillText(randChar, i * charWidth + (charWidth - layer.size) / 2, charY);
+                                
+                                // The leading head character is white/bright cyan
+                                if (charIdx === 0) {
+                                    c.fillStyle = 'rgba(230, 255, 240, 0.9)';
+                                    c.fillText(randChar, i * charWidth + (charWidth - layer.size) / 2, charY);
+                                }
                             }
                         }
                     }
-                }
+                });
+                
                 c.restore();
             }
         },
@@ -780,43 +883,141 @@ const SKINS_CONFIG = {
             desc: "炫彩太空星云迷雾与微光闪烁星空。加成：系统生命上限提高至 4，过关自动复原 1 点生命，初始满血",
             draw(c) {
                 c.save();
-                c.fillStyle = '#03030b';
+                
+                // Base deep void space color
+                c.fillStyle = '#020108';
                 c.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
                 
-                const t = Date.now() / 6000;
+                const t = Date.now() / 1000;
                 
-                // Purple nebula
-                const n1x = CANVAS_WIDTH / 2 + Math.cos(t) * 100;
-                const n1y = 200 + Math.sin(t) * 80;
-                const g1 = c.createRadialGradient(n1x, n1y, 50, n1x, n1y, 250);
-                g1.addColorStop(0, 'rgba(120, 0, 255, 0.15)');
-                g1.addColorStop(0.5, 'rgba(80, 0, 255, 0.05)');
-                g1.addColorStop(1, 'rgba(0,0,0,0)');
-                c.fillStyle = g1;
-                c.beginPath();
-                c.arc(n1x, n1y, 250, 0, Math.PI*2);
-                c.fill();
-                
-                // Cyan nebula
-                const n2x = CANVAS_WIDTH / 3 + Math.sin(t * 0.8) * 120;
-                const n2y = 350 + Math.cos(t * 0.8) * 90;
-                const g2 = c.createRadialGradient(n2x, n2y, 40, n2x, n2y, 220);
-                g2.addColorStop(0, 'rgba(0, 240, 255, 0.12)');
-                g2.addColorStop(0.4, 'rgba(0, 180, 255, 0.04)');
-                g2.addColorStop(1, 'rgba(0,0,0,0)');
-                c.fillStyle = g2;
-                c.beginPath();
-                c.arc(n2x, n2y, 220, 0, Math.PI*2);
-                c.fill();
-                
-                // Twinkling stars
-                for (let i = 0; i < 30; i++) {
-                    const sx = Math.abs(Math.sin(i * 123.45) * CANVAS_WIDTH);
-                    const sy = Math.abs(Math.cos(i * 543.21) * CANVAS_HEIGHT);
-                    const twinkle = Math.sin(Date.now() / 400 + i) * 0.35 + 0.65;
-                    c.fillStyle = `rgba(255, 255, 255, ${twinkle * 0.6})`;
-                    c.fillRect(sx, sy, i % 3 === 0 ? 2 : 1, i % 3 === 0 ? 2 : 1);
+                // Draw starfield (dense twinkling stars)
+                c.save();
+                for (let i = 0; i < 45; i++) {
+                    const sx = Math.abs(Math.sin(i * 382.91) * CANVAS_WIDTH);
+                    const sy = Math.abs(Math.cos(i * 821.56) * CANVAS_HEIGHT);
+                    const size = (i % 5 === 0) ? 2 : 1;
+                    const twinkle = Math.sin(t * 1.5 + i) * 0.4 + 0.6;
+                    
+                    // Star color variation
+                    let starColor = `rgba(255, 255, 255, ${twinkle * 0.65})`;
+                    if (i % 7 === 0) starColor = `rgba(130, 200, 255, ${twinkle * 0.8})`; // blue star
+                    else if (i % 11 === 0) starColor = `rgba(255, 180, 180, ${twinkle * 0.7})`; // red star
+                    
+                    c.fillStyle = starColor;
+                    c.fillRect(sx, sy, size, size);
                 }
+                c.restore();
+
+                // Multi-layered rotating nebula gas clouds with screen blending
+                c.save();
+                c.globalCompositeOperation = 'screen';
+                
+                // Magenta cloud
+                const mX = CANVAS_WIDTH / 2 + Math.cos(t * 0.08) * 80;
+                const mY = 220 + Math.sin(t * 0.1) * 60;
+                const mGrad = c.createRadialGradient(mX, mY, 10, mX, mY, 260);
+                mGrad.addColorStop(0, 'rgba(255, 0, 180, 0.16)');
+                mGrad.addColorStop(0.4, 'rgba(200, 0, 255, 0.06)');
+                mGrad.addColorStop(0.8, 'rgba(100, 0, 180, 0.01)');
+                mGrad.addColorStop(1, 'rgba(0,0,0,0)');
+                c.fillStyle = mGrad;
+                c.beginPath();
+                c.arc(mX, mY, 260, 0, Math.PI * 2);
+                c.fill();
+                
+                // Cyan/Blue cloud
+                const cX = CANVAS_WIDTH / 2 + Math.sin(t * 0.07) * 100;
+                const cY = 280 + Math.cos(t * 0.09) * 50;
+                const cGrad = c.createRadialGradient(cX, cY, 15, cX, cY, 230);
+                cGrad.addColorStop(0, 'rgba(0, 190, 255, 0.14)');
+                cGrad.addColorStop(0.5, 'rgba(0, 100, 255, 0.05)');
+                cGrad.addColorStop(0.8, 'rgba(0, 50, 150, 0.01)');
+                cGrad.addColorStop(1, 'rgba(0,0,0,0)');
+                c.fillStyle = cGrad;
+                c.beginPath();
+                c.arc(cX, cY, 230, 0, Math.PI * 2);
+                c.fill();
+                
+                // Golden/Violet center core cloud
+                const vX = CANVAS_WIDTH / 2 + Math.cos(t * 0.13) * 40;
+                const vY = 240 + Math.sin(t * 0.11) * 30;
+                const vGrad = c.createRadialGradient(vX, vY, 5, vX, vY, 150);
+                vGrad.addColorStop(0, 'rgba(255, 120, 0, 0.12)');
+                vGrad.addColorStop(0.4, 'rgba(120, 0, 255, 0.05)');
+                vGrad.addColorStop(1, 'rgba(0,0,0,0)');
+                c.fillStyle = vGrad;
+                c.beginPath();
+                c.arc(vX, vY, 150, 0, Math.PI * 2);
+                c.fill();
+                
+                c.restore();
+
+                // Draw central black hole anomaly
+                c.save();
+                const bhX = CANVAS_WIDTH / 2;
+                const bhY = 240;
+                
+                // Accretion disk glow
+                const diskRadius = 45 + Math.sin(t * 2) * 2;
+                c.shadowBlur = 20;
+                c.shadowColor = '#a0f';
+                const diskGrad = c.createRadialGradient(bhX, bhY, 12, bhX, bhY, diskRadius);
+                diskGrad.addColorStop(0, 'rgba(0,0,0,1)');
+                diskGrad.addColorStop(0.2, 'rgba(255, 255, 255, 0.85)');
+                diskGrad.addColorStop(0.4, 'rgba(180, 0, 255, 0.4)');
+                diskGrad.addColorStop(0.7, 'rgba(0, 240, 255, 0.15)');
+                diskGrad.addColorStop(1, 'rgba(0,0,0,0)');
+                
+                c.fillStyle = diskGrad;
+                c.beginPath();
+                c.arc(bhX, bhY, diskRadius, 0, Math.PI * 2);
+                c.fill();
+                
+                // Rotating singularity ring
+                c.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+                c.lineWidth = 1.5;
+                c.beginPath();
+                c.ellipse(bhX, bhY, 24, 6, t * 1.2, 0, Math.PI * 2);
+                c.stroke();
+                
+                // Dark singularity center
+                c.fillStyle = '#000000';
+                c.shadowBlur = 0;
+                c.beginPath();
+                c.arc(bhX, bhY, 12, 0, Math.PI * 2);
+                c.fill();
+                
+                c.restore();
+
+                // Shooting star animation
+                c.save();
+                const shootInterval = 3000; // ms
+                const shootSeed = Math.floor(t * 1000 / shootInterval);
+                const shootProgress = ((t * 1000) % shootInterval) / shootInterval;
+                if (shootProgress < 0.25) {
+                    const startX = (Math.sin(shootSeed * 99) * 0.5 + 0.5) * CANVAS_WIDTH;
+                    const startY = (Math.cos(shootSeed * 55) * 0.3 + 0.3) * 200;
+                    const length = 120;
+                    const dx = 160;
+                    const dy = 50;
+                    
+                    const progress = shootProgress / 0.25; // 0 to 1
+                    const curX = startX + dx * progress;
+                    const curY = startY + dy * progress;
+                    
+                    const tailGrad = c.createLinearGradient(curX - dx * 0.4, curY - dy * 0.4, curX, curY);
+                    tailGrad.addColorStop(0, 'rgba(255,255,255,0)');
+                    tailGrad.addColorStop(1, 'rgba(0, 240, 255, 0.7)');
+                    
+                    c.strokeStyle = tailGrad;
+                    c.lineWidth = 1.5;
+                    c.beginPath();
+                    c.moveTo(curX - dx * 0.4, curY - dy * 0.4);
+                    c.lineTo(curX, curY);
+                    c.stroke();
+                }
+                c.restore();
+                
                 c.restore();
             }
         }
