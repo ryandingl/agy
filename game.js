@@ -908,6 +908,38 @@ const SKINS_CONFIG = {
                 }
                 c.restore();
 
+                // Warp stars erupting from the black hole center outwards (3D travel effect)
+                c.save();
+                const bhX_pos = CANVAS_WIDTH / 2;
+                const bhY_pos = 240;
+                for (let i = 0; i < 20; i++) {
+                    const angle = (i * 123.45) % (Math.PI * 2);
+                    const speed = 0.4 + (i * 0.17) % 1.2;
+                    const travelTime = (t * 60 * speed) % 500;
+                    
+                    const r = 12 + travelTime;
+                    const sx = bhX_pos + Math.cos(angle) * r;
+                    const sy = bhY_pos + Math.sin(angle) * r;
+                    
+                    const tailLength = Math.min(25, r * 0.18);
+                    const tx = bhX_pos + Math.cos(angle) * (r - tailLength);
+                    const ty = bhY_pos + Math.sin(angle) * (r - tailLength);
+                    
+                    const starAlpha = Math.min(1.0, (500 - travelTime) / 200) * 0.7;
+                    const starGrad = c.createLinearGradient(tx, ty, sx, sy);
+                    starGrad.addColorStop(0, 'rgba(0, 240, 255, 0)');
+                    starGrad.addColorStop(0.5, `rgba(180, 0, 255, ${starAlpha * 0.5})`);
+                    starGrad.addColorStop(1, `rgba(255, 255, 255, ${starAlpha})`);
+                    
+                    c.strokeStyle = starGrad;
+                    c.lineWidth = 1.2;
+                    c.beginPath();
+                    c.moveTo(tx, ty);
+                    c.lineTo(sx, sy);
+                    c.stroke();
+                }
+                c.restore();
+
                 // Multi-layered rotating nebula gas clouds with screen blending
                 c.save();
                 c.globalCompositeOperation = 'screen';
@@ -959,7 +991,7 @@ const SKINS_CONFIG = {
                 
                 // Accretion disk glow
                 const diskRadius = 45 + Math.sin(t * 2) * 2;
-                c.shadowBlur = 20;
+                c.shadowBlur = 25;
                 c.shadowColor = '#a0f';
                 const diskGrad = c.createRadialGradient(bhX, bhY, 12, bhX, bhY, diskRadius);
                 diskGrad.addColorStop(0, 'rgba(0,0,0,1)');
@@ -973,8 +1005,35 @@ const SKINS_CONFIG = {
                 c.arc(bhX, bhY, diskRadius, 0, Math.PI * 2);
                 c.fill();
                 
-                // Rotating singularity ring
-                c.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+                // Rotating accretion/gravitational lensing rings (overlapping multidirectional)
+                c.save();
+                c.shadowBlur = 15;
+                
+                // Ring 1 (cyan, glowing, rotating)
+                c.strokeStyle = 'rgba(0, 240, 255, 0.45)';
+                c.shadowColor = '#00ffff';
+                c.lineWidth = 1.5;
+                c.beginPath();
+                c.ellipse(bhX, bhY, 32 + Math.sin(t * 1.5) * 2, 8 + Math.cos(t * 1.5) * 1, t * 0.8, 0, Math.PI * 2);
+                c.stroke();
+                
+                // Ring 2 (counter-rotating, magenta)
+                c.strokeStyle = 'rgba(255, 0, 180, 0.4)';
+                c.shadowColor = '#ff00b7';
+                c.beginPath();
+                c.ellipse(bhX, bhY, 48 + Math.cos(t * 2.2) * 3, 12 + Math.sin(t * 2.2) * 2, -t * 0.5, 0, Math.PI * 2);
+                c.stroke();
+                
+                // Ring 3 (outer faint tilt white ring)
+                c.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+                c.shadowBlur = 0;
+                c.beginPath();
+                c.ellipse(bhX, bhY, 68, 16, t * 0.3, 0, Math.PI * 2);
+                c.stroke();
+                c.restore();
+                
+                // Rotating core singularity lines
+                c.strokeStyle = 'rgba(255, 255, 255, 0.4)';
                 c.lineWidth = 1.5;
                 c.beginPath();
                 c.ellipse(bhX, bhY, 24, 6, t * 1.2, 0, Math.PI * 2);
