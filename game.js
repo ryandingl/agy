@@ -45,6 +45,10 @@ const state = {
         brick: {
             owned: [true, false, false, false],
             active: 0
+        },
+        theme: {
+            owned: [true, false, false, false],
+            active: 0
         }
     }
 };
@@ -638,6 +642,184 @@ const SKINS_CONFIG = {
                 c.restore();
             }
         }
+    ],
+    theme: [
+        {
+            name: "STANDARD_GRID // 标准矩阵",
+            price: 0,
+            bonus: 0,
+            desc: "标准视窗，经典赛博平铺网格底板",
+            draw(c) {
+                c.save();
+                c.strokeStyle = 'rgba(26, 28, 53, 0.4)';
+                c.lineWidth = 1;
+                
+                // Draw vertical lines
+                const cols = 20;
+                for (let i = 0; i <= cols; i++) {
+                    const xPos = (i / cols) * CANVAS_WIDTH;
+                    c.beginPath();
+                    c.moveTo(xPos, 0);
+                    c.lineTo(xPos, CANVAS_HEIGHT);
+                    c.stroke();
+                }
+                
+                // Draw horizontal lines
+                const rows = 15;
+                for (let i = 0; i <= rows; i++) {
+                    const yPos = (i / rows) * CANVAS_HEIGHT;
+                    c.beginPath();
+                    c.moveTo(0, yPos);
+                    c.lineTo(CANVAS_WIDTH, yPos);
+                    c.stroke();
+                }
+                c.restore();
+            }
+        },
+        {
+            name: "SYNTH_WAVE // 霓虹正弦波",
+            price: 300,
+            bonus: 0.15,
+            desc: "复古80s霓虹红日与透视地平线。加成：击碎方块后倍率每次额外增加 0.15，且挡板连击衰减减缓 30%",
+            draw(c) {
+                c.save();
+                // Draw retro neon sun
+                const sunX = CANVAS_WIDTH / 2;
+                const sunY = 150;
+                const sunRadius = 70;
+                const grad = c.createLinearGradient(sunX, sunY - sunRadius, sunX, sunY + sunRadius);
+                grad.addColorStop(0, '#ff0077');
+                grad.addColorStop(1, '#ffaa00');
+                c.fillStyle = grad;
+                c.beginPath();
+                c.arc(sunX, sunY, sunRadius, 0, Math.PI * 2);
+                c.fill();
+                
+                // Sun strip cutouts
+                c.fillStyle = '#050508';
+                for (let y = sunY - 40; y < sunY + sunRadius; y += 14) {
+                    const barHeight = (y - (sunY - 40)) / 10 + 2;
+                    c.fillRect(sunX - sunRadius - 10, y, (sunRadius + 10) * 2, barHeight);
+                }
+                
+                // Horizon line and grid
+                c.strokeStyle = 'rgba(255, 0, 128, 0.25)';
+                c.lineWidth = 1.2;
+                const gridY = 320;
+                const vanishingX = CANVAS_WIDTH / 2;
+                
+                c.beginPath();
+                c.moveTo(0, gridY);
+                c.lineTo(CANVAS_WIDTH, gridY);
+                c.stroke();
+                
+                // Vertical lines
+                const numLines = 16;
+                for (let i = 0; i <= numLines; i++) {
+                    const targetX = (i / numLines) * CANVAS_WIDTH;
+                    c.beginPath();
+                    c.moveTo(vanishingX, gridY);
+                    c.lineTo(targetX, CANVAS_HEIGHT);
+                    c.stroke();
+                }
+                
+                // Scrolling horizontal lines
+                const time = (Date.now() / 35) % 100;
+                for (let i = 0; i < 9; i++) {
+                    const ratio = ((i * 30 + time) / 300);
+                    const y = gridY + (CANVAS_HEIGHT - gridY) * Math.pow(ratio, 2.5);
+                    if (y > gridY && y < CANVAS_HEIGHT) {
+                        c.beginPath();
+                        c.moveTo(0, y);
+                        c.lineTo(CANVAS_WIDTH, y);
+                        c.stroke();
+                    }
+                }
+                c.restore();
+            }
+        },
+        {
+            name: "MATRIX_RAIN // 数码瀑布雨",
+            price: 500,
+            bonus: 0.25,
+            desc: "黑客帝国数码雨流注。加成：过关积分结算奖励提升 25%，且吃掉道具时额外奖 10 CR",
+            draw(c) {
+                c.save();
+                c.fillStyle = 'rgba(0, 5, 2, 0.45)';
+                c.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                
+                c.font = '9px "Share Tech Mono", monospace';
+                const charWidth = 16;
+                const cols = Math.floor(CANVAS_WIDTH / charWidth);
+                for (let i = 0; i < cols; i++) {
+                    const speed = 0.15 + (i % 7) * 0.05;
+                    const yOffset = (Date.now() * speed) % (CANVAS_HEIGHT + 200) - 100;
+                    
+                    for (let charIdx = 0; charIdx < 12; charIdx++) {
+                        const charY = yOffset - charIdx * 14;
+                        if (charY > 0 && charY < CANVAS_HEIGHT) {
+                            const alpha = (12 - charIdx) / 12 * 0.4;
+                            c.fillStyle = `rgba(5, 255, 80, ${alpha})`;
+                            const char = (Math.abs(Math.sin(i * 10 + charIdx * 20)) < 0.5) ? '0' : '1';
+                            c.fillText(char, i * charWidth + 4, charY);
+                            
+                            if (charIdx === 0) {
+                                c.fillStyle = 'rgba(255, 255, 255, 0.75)';
+                                c.fillText(char, i * charWidth + 4, charY);
+                            }
+                        }
+                    }
+                }
+                c.restore();
+            }
+        },
+        {
+            name: "NEBULA_VOID // 虚空深空星云",
+            price: 800,
+            bonus: 0,
+            desc: "炫彩太空星云迷雾与微光闪烁星空。加成：系统生命上限提高至 4，过关自动复原 1 点生命，初始满血",
+            draw(c) {
+                c.save();
+                c.fillStyle = '#03030b';
+                c.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                
+                const t = Date.now() / 6000;
+                
+                // Purple nebula
+                const n1x = CANVAS_WIDTH / 2 + Math.cos(t) * 100;
+                const n1y = 200 + Math.sin(t) * 80;
+                const g1 = c.createRadialGradient(n1x, n1y, 50, n1x, n1y, 250);
+                g1.addColorStop(0, 'rgba(120, 0, 255, 0.15)');
+                g1.addColorStop(0.5, 'rgba(80, 0, 255, 0.05)');
+                g1.addColorStop(1, 'rgba(0,0,0,0)');
+                c.fillStyle = g1;
+                c.beginPath();
+                c.arc(n1x, n1y, 250, 0, Math.PI*2);
+                c.fill();
+                
+                // Cyan nebula
+                const n2x = CANVAS_WIDTH / 3 + Math.sin(t * 0.8) * 120;
+                const n2y = 350 + Math.cos(t * 0.8) * 90;
+                const g2 = c.createRadialGradient(n2x, n2y, 40, n2x, n2y, 220);
+                g2.addColorStop(0, 'rgba(0, 240, 255, 0.12)');
+                g2.addColorStop(0.4, 'rgba(0, 180, 255, 0.04)');
+                g2.addColorStop(1, 'rgba(0,0,0,0)');
+                c.fillStyle = g2;
+                c.beginPath();
+                c.arc(n2x, n2y, 220, 0, Math.PI*2);
+                c.fill();
+                
+                // Twinkling stars
+                for (let i = 0; i < 30; i++) {
+                    const sx = Math.abs(Math.sin(i * 123.45) * CANVAS_WIDTH);
+                    const sy = Math.abs(Math.cos(i * 543.21) * CANVAS_HEIGHT);
+                    const twinkle = Math.sin(Date.now() / 400 + i) * 0.35 + 0.65;
+                    c.fillStyle = `rgba(255, 255, 255, ${twinkle * 0.6})`;
+                    c.fillRect(sx, sy, i % 3 === 0 ? 2 : 1, i % 3 === 0 ? 2 : 1);
+                }
+                c.restore();
+            }
+        }
     ]
 };
 
@@ -1039,7 +1221,8 @@ function updateHUD() {
     // Lives display nodes
     const livesContainer = document.getElementById('lives-container');
     livesContainer.innerHTML = '';
-    for (let i = 0; i < 3; i++) {
+    const maxLives = (state.skins && state.skins.theme && state.skins.theme.active === 3) ? 4 : 3;
+    for (let i = 0; i < maxLives; i++) {
         const node = document.createElement('div');
         node.className = `life-node ${i >= state.lives ? 'lost' : ''}`;
         livesContainer.appendChild(node);
@@ -1339,7 +1522,8 @@ function generateBricks() {
                     if (this.type === 4) baseVal = 2.5;
                     
                     state.score += baseVal * state.multiplier;
-                    state.multiplier += 0.1;
+                    const isSynthWave = (state.skins && state.skins.theme && state.skins.theme.active === 1);
+                    state.multiplier += isSynthWave ? 0.15 : 0.1;
                     
                     // Explosion particles matching color
                     spawnParticles(this.x + this.width / 2, this.y + this.height / 2, this.color, 12);
@@ -1448,6 +1632,14 @@ function dropPowerup(x, y) {
 function applyPowerup(pType, pConf) {
     playSound('powerup');
     addLogLine(`MOD LOADED: ${pConf.label} - ${pConf.desc}`);
+    
+    // Matrix rain credit boost: +10 CR
+    if (state.skins && state.skins.theme && state.skins.theme.active === 2) {
+        state.score += 10;
+        addLogLine("THEME_BONUS: MATRIX_RAIN DATA HARVEST (+10 CR)");
+        saveCredits();
+        updateHUD();
+    }
     
     switch(pType) {
         case 'WIDE':
@@ -1632,7 +1824,9 @@ function updatePhysics() {
                 triggerScreenShake(3);
                 
                 // Break combo multiplier slightly or keep it rolling
-                state.multiplier = Math.max(state.baseMultiplier || 1.0, state.multiplier - 0.2);
+                const isSynthWave = (state.skins && state.skins.theme && state.skins.theme.active === 1);
+                const decay = isSynthWave ? 0.14 : 0.2;
+                state.multiplier = Math.max(state.baseMultiplier || 1.0, state.multiplier - decay);
             }
         }
         
@@ -1806,6 +2000,15 @@ function gameOver() {
 }
 
 function handleLevelComplete() {
+    // Stage Clear Bonus
+    let stageClearBonus = 50 * state.level * state.multiplier;
+    const isMatrixRain = (state.skins && state.skins.theme && state.skins.theme.active === 2);
+    if (isMatrixRain) {
+        stageClearBonus *= 1.25;
+    }
+    state.score += stageClearBonus;
+    addLogLine(`STAGE CLEAR BONUS: +${Math.round(stageClearBonus)} CR ${isMatrixRain ? '(MATRIX_RAIN +25%)' : ''}`);
+
     state.level++;
     
     // Check if player cleared all levels (Story mode only)
@@ -1893,13 +2096,17 @@ const SHOP_ITEMS = [
     {
         id: 'LIFE',
         name: 'SYS_LIFE // 系统生命',
-        desc: '修复系统，增加 1 次生命值 (上限 3)',
+        get desc() {
+            const maxLives = (state.skins && state.skins.theme && state.skins.theme.active === 3) ? 4 : 3;
+            return `修复系统，增加 1 次生命值 (上限 ${maxLives})`;
+        },
         get price() {
             return 25 + (state.lifePurchases || 0) * 5;
         },
         color: '#0044ff',
         buy() {
-            state.lives = Math.min(3, state.lives + 1);
+            const maxLives = (state.skins && state.skins.theme && state.skins.theme.active === 3) ? 4 : 3;
+            state.lives = Math.min(maxLives, state.lives + 1);
             state.lifePurchases = (state.lifePurchases || 0) + 1;
         }
     },
@@ -1976,7 +2183,8 @@ function renderShopItems() {
             
             // Check if affordable and if conditions met
             let canBuy = Math.floor(state.score) >= item.price;
-            if (item.id === 'LIFE' && state.lives >= 3) {
+            const maxLives = (state.skins && state.skins.theme && state.skins.theme.active === 3) ? 4 : 3;
+            if (item.id === 'LIFE' && state.lives >= maxLives) {
                 canBuy = false;
             }
             
@@ -1985,7 +2193,7 @@ function renderShopItems() {
             }
             
             let btnText = `BUY // ${item.price} CR`;
-            if (item.id === 'LIFE' && state.lives >= 3) {
+            if (item.id === 'LIFE' && state.lives >= maxLives) {
                 btnText = 'MAX LIVES';
             }
             
@@ -1996,7 +2204,7 @@ function renderShopItems() {
             
             buyBtn.addEventListener('click', () => {
                 if (Math.floor(state.score) >= item.price) {
-                    if (item.id === 'LIFE' && state.lives >= 3) return;
+                    if (item.id === 'LIFE' && state.lives >= maxLives) return;
                     
                     state.score -= item.price;
                     item.buy();
@@ -2074,6 +2282,10 @@ function renderShopItems() {
                         paddle.targetWidth = (activeMods['WIDE'] ? 180 : 120) * (1 + getPaddleSkinBonus());
                     } else if (category === 'ball') {
                         applyBallSkin();
+                    } else if (category === 'theme') {
+                        const maxLives = (state.skins && state.skins.theme && state.skins.theme.active === 3) ? 4 : 3;
+                        state.lives = Math.min(maxLives, state.lives);
+                        updateHUD();
                     }
                     
                     renderShopItems();
@@ -2102,6 +2314,10 @@ function renderShopItems() {
                             paddle.targetWidth = (activeMods['WIDE'] ? 180 : 120) * (1 + getPaddleSkinBonus());
                         } else if (category === 'ball') {
                             applyBallSkin();
+                        } else if (category === 'theme') {
+                            const maxLives = (state.skins && state.skins.theme && state.skins.theme.active === 3) ? 4 : 3;
+                            state.lives = Math.min(maxLives, state.lives);
+                            updateHUD();
                         }
                         
                         // Update credits display
@@ -2148,7 +2364,7 @@ function switchShopTab(tab) {
 function switchSkinCategory(cat) {
     state.currentSkinCategory = cat;
     
-    ['paddle', 'ball', 'brick'].forEach(c => {
+    ['paddle', 'ball', 'brick', 'theme'].forEach(c => {
         const btn = document.getElementById(`skin-cat-${c}`);
         if (btn) {
             if (c === cat) {
@@ -2240,6 +2456,13 @@ function drawSkinPreview(canvas, category, skin, index) {
             }
         };
         skin.draw(mockBr, pCtx);
+    } else if (category === 'theme') {
+        pCtx.save();
+        const sx = canvas.width / CANVAS_WIDTH;
+        const sy = canvas.height / CANVAS_HEIGHT;
+        pCtx.scale(sx, sy);
+        skin.draw(pCtx);
+        pCtx.restore();
     }
 }
 
@@ -2258,6 +2481,16 @@ function handleShopNext() {
 function startNextLevel() {
     // Hide shop overlay
     document.getElementById('shop-overlay').classList.add('hidden');
+    
+    // Theme 3 heal bonus
+    if (state.skins && state.skins.theme && state.skins.theme.active === 3) {
+        const maxLives = 4;
+        if (state.lives < maxLives) {
+            state.lives++;
+            addLogLine("THEME_BONUS: SYSTEM AUTO-REPAIR (+1 LIFE)");
+            updateHUD();
+        }
+    }
     
     // Flash game alert level up
     const alertBox = document.getElementById('game-alert');
@@ -2323,7 +2556,8 @@ function startGame(chosenMode = 'STORY') {
     state.baseMultiplier = 1.0 + (state.multPurchases || 0) * 0.2;
     state.multiplier = state.baseMultiplier;
     state.level = 1;
-    state.lives = 3;
+    const maxLives = (state.skins && state.skins.theme && state.skins.theme.active === 3) ? 4 : 3;
+    state.lives = maxLives;
     state.shopPendingBalls = 0;
     activeMods = {};
     
@@ -2362,8 +2596,8 @@ function draw() {
     ctx.fillStyle = '#050508';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     
-    // Draw neon grid floor background
-    drawGridBackground();
+    // Draw active background theme
+    drawThemeBackground();
     
     // Draw brick nodes
     bricks.forEach(b => {
@@ -2409,32 +2643,11 @@ function draw() {
     ctx.restore();
 }
 
-// Cyberpunk synthwave background grid pattern
-function drawGridBackground() {
-    ctx.save();
-    ctx.strokeStyle = 'rgba(26, 28, 53, 0.4)';
-    ctx.lineWidth = 1;
-    
-    // Draw perspective vertical lines
-    const cols = 20;
-    for (let i = 0; i <= cols; i++) {
-        const xPos = (i / cols) * CANVAS_WIDTH;
-        ctx.beginPath();
-        ctx.moveTo(xPos, 0);
-        ctx.lineTo(xPos, CANVAS_HEIGHT);
-        ctx.stroke();
-    }
-    
-    // Draw horizontal lines
-    const rows = 15;
-    for (let i = 0; i <= rows; i++) {
-        const yPos = (i / rows) * CANVAS_HEIGHT;
-        ctx.beginPath();
-        ctx.moveTo(0, yPos);
-        ctx.lineTo(CANVAS_WIDTH, yPos);
-        ctx.stroke();
-    }
-    ctx.restore();
+// Draw active background theme
+function drawThemeBackground() {
+    const active = state.skins ? state.skins.theme.active : 0;
+    const theme = SKINS_CONFIG.theme[active] || SKINS_CONFIG.theme[0];
+    theme.draw(ctx);
 }
 
 // --- EVENT HANDLERS & INITIALIZATION ---
@@ -2542,6 +2755,7 @@ function setupInputListeners() {
     document.getElementById('skin-cat-paddle').addEventListener('click', () => switchSkinCategory('paddle'));
     document.getElementById('skin-cat-ball').addEventListener('click', () => switchSkinCategory('ball'));
     document.getElementById('skin-cat-brick').addEventListener('click', () => switchSkinCategory('brick'));
+    document.getElementById('skin-cat-theme').addEventListener('click', () => switchSkinCategory('theme'));
     
     // Audio Toggle Action
     const audioBtn = document.getElementById('audio-toggle');
@@ -2583,11 +2797,15 @@ function loadCredits() {
         const skinsCached = localStorage.getItem('cyberbreak_skins');
         if (skinsCached) {
             state.skins = JSON.parse(skinsCached);
+            if (!state.skins.theme) {
+                state.skins.theme = { owned: [true, false, false, false], active: 0 };
+            }
         } else {
             state.skins = {
                 paddle: { owned: [true, false, false, false], active: 0 },
                 ball: { owned: [true, false, false, false], active: 0 },
-                brick: { owned: [true, false, false, false], active: 0 }
+                brick: { owned: [true, false, false, false], active: 0 },
+                theme: { owned: [true, false, false, false], active: 0 }
             };
         }
     } catch(e) {
@@ -2595,7 +2813,8 @@ function loadCredits() {
         state.skins = {
             paddle: { owned: [true, false, false, false], active: 0 },
             ball: { owned: [true, false, false, false], active: 0 },
-            brick: { owned: [true, false, false, false], active: 0 }
+            brick: { owned: [true, false, false, false], active: 0 },
+            theme: { owned: [true, false, false, false], active: 0 }
         };
     }
 }
@@ -2625,7 +2844,8 @@ function resetEndlessProgress() {
         state.skins = {
             paddle: { owned: [true, false, false, false], active: 0 },
             ball: { owned: [true, false, false, false], active: 0 },
-            brick: { owned: [true, false, false, false], active: 0 }
+            brick: { owned: [true, false, false, false], active: 0 },
+            theme: { owned: [true, false, false, false], active: 0 }
         };
         
         // Save reset variables to local storage
@@ -2781,7 +3001,8 @@ function createBrickObject(bData) {
             if (this.type === 4) baseVal = 2.5;
             
             state.score += baseVal * state.multiplier;
-            state.multiplier += 0.1;
+            const isSynthWave = (state.skins && state.skins.theme && state.skins.theme.active === 1);
+            state.multiplier += isSynthWave ? 0.15 : 0.1;
             
             spawnParticles(this.x + this.width / 2, this.y + this.height / 2, this.color, 12);
             
