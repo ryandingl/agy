@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYBER_BREAK // 赛博朋克打砖块</title>
+    <meta name="description" content="一个充满霓虹、重低音和复古未来主义的赛博朋克风打砖块游戏。">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="crt-overlay"></div>
+    <div id="scanlines"></div>
+
+    <div class="game-container">
+        <!-- Header HUD -->
+        <header class="hud-header">
+            <div class="hud-panel score-panel">
+                <span class="hud-label">SCORE // 得分</span>
+                <span id="score-val" class="hud-value neon-cyan">000000</span>
+            </div>
+            
+            <div class="hud-panel title-panel">
+                <h1 class="glitch" data-text="CYBER_BREAK">CYBER_BREAK</h1>
+            </div>
+
+            <div class="hud-panel multiplier-panel">
+                <span class="hud-label">MULTIPLIER // 倍率</span>
+                <span id="mult-val" class="hud-value neon-magenta">x1.0</span>
+            </div>
+        </header>
+
+        <!-- Main Workspace -->
+        <div class="game-layout">
+            <!-- Left Info Panel -->
+            <aside class="sidebar-panel left-panel">
+                <div class="status-box">
+                    <div class="hud-label">SYSTEM STATE // 系统状态</div>
+                    <div class="status-row">
+                        <span>LIVES:</span>
+                        <div id="lives-container" class="neon-cyan">
+                            <!-- Hearts/Nodes will be injected here -->
+                        </div>
+                    </div>
+                    <div class="status-row">
+                        <span>MODE:</span>
+                        <span id="mode-val" class="neon-magenta font-orbitron">STORY</span>
+                    </div>
+                    <div class="status-row">
+                        <span>LEVEL:</span>
+                        <span id="level-val" class="neon-yellow font-orbitron">01</span>
+                    </div>
+                </div>
+
+                <div class="status-box active-powerups">
+                    <div class="hud-label">ACTIVE MODS // 模组加载</div>
+                    <div id="powerup-list">
+                        <div class="no-mods">NO ACTIVE MODS</div>
+                    </div>
+                </div>
+
+                <div id="save-exit-box" class="status-box hidden">
+                    <div class="hud-label">OPERATIONS // 系统控制</div>
+                    <button id="save-exit-btn" class="cyber-btn magenta-theme" style="padding: 10px; font-size: 11px; margin-top: 5px;">
+                        <span class="btn-slice"></span>
+                        <span class="btn-text">SAVE & EXIT // 保存并退出</span>
+                    </button>
+                </div>
+
+                <div class="status-box controls-hint">
+                    <div class="hud-label">CONTROLS // 键盘操作</div>
+                    <p>← / A : 左移</p>
+                    <p>→ / D : 右移</p>
+                    <p>SPACE : 发射/射击</p>
+                    <p>MOUSE : 移动鼠标控制挡板</p>
+                </div>
+            </aside>
+
+            <!-- Game Arena -->
+            <main class="arena-wrapper">
+                <canvas id="game-canvas" width="800" height="600"></canvas>
+
+                <!-- UI Overlays inside Canvas Area -->
+                <div id="menu-overlay" class="overlay-panel">
+                    <div class="glitch-title-large" data-text="CYBER_BREAK">CYBER_BREAK</div>
+                    <p class="subtitle neon-cyan">NEURAL INTERFACE INITIALIZED</p>
+                    <div class="menu-options">
+                        <button id="start-story-btn" class="cyber-btn cyan-theme">
+                            <span class="btn-slice"></span>
+                            <span class="btn-text">STORY_LINK() // 关卡模式</span>
+                        </button>
+                        <div class="menu-row">
+                            <button id="start-endless-btn" class="cyber-btn yellow-theme" style="flex: 1;">
+                                <span class="btn-slice"></span>
+                                <span class="btn-text">INFINITE_LINK() // 无尽模式</span>
+                            </button>
+                            <button id="reset-endless-btn" class="cyber-btn magenta-theme square-btn" title="RESET_GRID() // 重置无尽">
+                                <span class="btn-slice"></span>
+                                <span class="btn-text">⟲</span>
+                            </button>
+                        </div>
+                        <button id="menu-shop-btn" class="cyber-btn green-theme">
+                            <span class="btn-slice"></span>
+                            <span class="btn-text">BLACK_MARKET() // 黑市商城</span>
+                        </button>
+                        <button id="audio-toggle" class="cyber-btn magenta-theme">
+                            <span class="btn-slice"></span>
+                            <span class="btn-text">AUDIO: ON // 声音</span>
+                        </button>
+                    </div>
+                    <div class="high-score-display">
+                        RECORD_HOLDER: <span id="high-score-val" class="neon-yellow">000000</span>
+                    </div>
+                </div>
+
+                <div id="game-over-overlay" class="overlay-panel hidden">
+                    <div class="glitch-title-large error-glitch" data-text="LINK_LOST">LINK_LOST</div>
+                    <p class="subtitle neon-magenta">NEURAL CONNECTION SEVERED // 神经连接断开</p>
+                    <div class="stats-summary">
+                        <p>FINAL SCORE: <span id="final-score" class="neon-cyan">0</span></p>
+                        <p>MAX LEVEL: <span id="final-level" class="neon-yellow">0</span></p>
+                    </div>
+                    <button id="retry-btn" class="cyber-btn magenta-theme">
+                        <span class="btn-slice"></span>
+                        <span class="btn-text">RECONNECT() // 重新连接</span>
+                    </button>
+                </div>
+
+                <div id="victory-overlay" class="overlay-panel hidden">
+                    <div class="glitch-title-large success-glitch" data-text="SYSTEM_OVERFLOW">SYSTEM_OVERFLOW</div>
+                    <p class="subtitle neon-green">DATABASE BREACHED // 核心数据库破解成功</p>
+                    <div class="stats-summary">
+                        <p>FINAL SCORE: <span id="victory-score" class="neon-cyan">0</span></p>
+                        <p>CORP DEFEATED!</p>
+                    </div>
+                    <button id="win-retry-btn" class="cyber-btn green-theme">
+                        <span class="btn-slice"></span>
+                        <span class="btn-text">RE-ENTER GRID() // 重入网格</span>
+                    </button>
+                </div>
+
+                <div id="shop-overlay" class="overlay-panel hidden">
+                    <div class="glitch-title-large success-glitch" data-text="CYBER_MART">CYBER_MART</div>
+                    <p class="subtitle neon-cyan">BLACK MARKET TERMINAL // 黑市终端</p>
+                    <div class="shop-balance neon-yellow">CREDITS // 积分: <span id="shop-credits-val">0</span></div>
+                    
+                    <div class="shop-items-container">
+                        <!-- Items dynamically injected by game.js -->
+                    </div>
+                    
+                    <button id="next-level-btn" class="cyber-btn green-theme" style="max-width: 400px;">
+                        <span class="btn-slice"></span>
+                        <span class="btn-text">INITIALIZE NEXT LEVEL // 进入下一关</span>
+                    </button>
+                </div>
+
+
+                <!-- Floating Game Notifications (e.g. Level Up, Glitch Alert) -->
+                <div id="game-alert" class="hidden"></div>
+            </main>
+
+            <!-- Right Visualizer / Diagnostics -->
+            <aside class="sidebar-panel right-panel">
+                <div class="status-box diagnostics">
+                    <div class="hud-label">DIAGNOSTICS // 实时诊断</div>
+                    <div class="diag-line">BALL_SPEED: <span id="diag-speed" class="neon-green">NORMAL</span></div>
+                    <div class="diag-line">SHIELD_STATUS: <span id="diag-shield" class="neon-cyan">INACTIVE</span></div>
+                    <div class="diag-line">LASER_CHARGE: <span id="diag-laser" class="neon-magenta">0%</span></div>
+                    <div class="diag-line">CORE_TEMP: <span id="diag-temp" class="neon-yellow">37°C</span></div>
+                </div>
+
+                <div class="status-box log-console">
+                    <div class="hud-label">SYSTEM_LOG // 系统控制台</div>
+                    <div id="log-output" class="log-lines">
+                        <div class="log-line">> init_kernel()... OK</div>
+                        <div class="log-line">> loading_grid_nodes... OK</div>
+                        <div class="log-line">> bypass_firewall()... READY</div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- Script Entry -->
+    <script src="game.js"></script>
+</body>
+</html>

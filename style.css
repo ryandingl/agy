@@ -1,0 +1,803 @@
+/* Core CSS for Cyberpunk Breakout Game */
+
+:root {
+    --bg-color: #05050a;
+    --panel-bg: rgba(13, 14, 25, 0.85);
+    --border-color: #1a1c35;
+    
+    /* Neon Colors */
+    --neon-cyan: #00f0ff;
+    --neon-magenta: #ff0055;
+    --neon-yellow: #ffb700;
+    --neon-green: #05ff50;
+    --neon-blue: #0044ff;
+    
+    --shadow-cyan: 0 0 10px rgba(0, 240, 255, 0.5), 0 0 20px rgba(0, 240, 255, 0.2);
+    --shadow-magenta: 0 0 10px rgba(255, 0, 85, 0.5), 0 0 20px rgba(255, 0, 85, 0.2);
+    --shadow-yellow: 0 0 10px rgba(255, 183, 0, 0.5), 0 0 20px rgba(255, 183, 0, 0.2);
+    --shadow-green: 0 0 10px rgba(5, 255, 80, 0.5), 0 0 20px rgba(5, 255, 80, 0.2);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: #e0e6ed;
+    font-family: 'Share Tech Mono', monospace;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-image: 
+        radial-gradient(circle at 50% 50%, rgba(20, 10, 40, 0.5) 0%, rgba(5, 5, 10, 1) 100%),
+        linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+    background-size: 100% 100%, 100% 4px, 6px 100%;
+}
+
+/* CRT Screen Effect Overlay */
+#crt-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: radial-gradient(circle, transparent 55%, rgba(0, 0, 0, 0.6) 100%);
+    pointer-events: none;
+    z-index: 9999;
+}
+
+#scanlines {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        rgba(18, 16, 16, 0) 50%, 
+        rgba(0, 0, 0, 0.3) 50%
+    );
+    background-size: 100% 4px;
+    pointer-events: none;
+    z-index: 9998;
+    opacity: 0.85;
+}
+
+/* Main Container Layout */
+.game-container {
+    width: 1200px;
+    max-width: 95vw;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding: 10px;
+    z-index: 10;
+}
+
+/* HUD Header styling */
+.hud-header {
+    display: grid;
+    grid-template-columns: 250px 1fr 250px;
+    align-items: center;
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    padding: 10px 20px;
+    clip-path: polygon(0 0, 97% 0, 100% 40%, 100% 100%, 3% 100%, 0 60%);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    border-bottom: 2px solid var(--neon-cyan);
+}
+
+.hud-panel {
+    display: flex;
+    flex-direction: column;
+}
+
+.score-panel {
+    align-items: flex-start;
+}
+
+.multiplier-panel {
+    align-items: flex-end;
+}
+
+.title-panel {
+    text-align: center;
+}
+
+.hud-label {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #6e7a91;
+    margin-bottom: 2px;
+}
+
+.hud-value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+}
+
+/* Glitch Title Effects */
+h1.glitch {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 32px;
+    font-weight: 900;
+    letter-spacing: 5px;
+    color: #fff;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+    position: relative;
+}
+
+h1.glitch::before, h1.glitch::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+}
+
+h1.glitch::before {
+    left: 2px;
+    text-shadow: -2px 0 var(--neon-magenta);
+    clip: rect(44px, 450px, 56px, 0);
+    animation: glitch-anim 5s infinite linear alternate-reverse;
+}
+
+h1.glitch::after {
+    left: -2px;
+    text-shadow: -2px 0 var(--neon-cyan), 0 2px var(--neon-magenta);
+    clip: rect(85px, 450px, 140px, 0);
+    animation: glitch-anim2 5s infinite linear alternate-reverse;
+}
+
+/* Game Layout Grid */
+.game-layout {
+    display: grid;
+    grid-template-columns: 200px 1fr 200px;
+    gap: 15px;
+    height: 600px;
+}
+
+/* Sidebars styling */
+.sidebar-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.status-box {
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    padding: 15px;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    border-top: 2px solid var(--border-color);
+    clip-path: polygon(0 0, 90% 0, 100% 10%, 100% 100%, 10% 100%, 0 90%);
+    box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.6);
+}
+
+.left-panel .status-box:first-child {
+    border-top-color: var(--neon-cyan);
+}
+
+.right-panel .status-box:first-child {
+    border-top-color: var(--neon-green);
+}
+
+.status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    font-size: 14px;
+}
+
+/* Heart Icons / Nodes for Lives */
+#lives-container {
+    display: flex;
+    gap: 5px;
+    font-size: 18px;
+}
+
+.life-node {
+    width: 12px;
+    height: 12px;
+    background: var(--neon-cyan);
+    box-shadow: var(--shadow-cyan);
+    clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+    display: inline-block;
+    transition: all 0.3s ease;
+}
+
+.life-node.lost {
+    background: #25283a;
+    box-shadow: none;
+    transform: scale(0.8);
+}
+
+/* Active Powerups List */
+.active-powerups {
+    flex-grow: 2;
+}
+
+#powerup-list {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+}
+
+.no-mods {
+    color: #4a5468;
+    text-align: center;
+    font-size: 12px;
+    margin-top: 30px;
+    letter-spacing: 1px;
+}
+
+.powerup-item {
+    background: rgba(26, 28, 53, 0.4);
+    border: 1px solid rgba(0, 240, 255, 0.2);
+    padding: 8px;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.powerup-name-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.powerup-bar-bg {
+    width: 100%;
+    height: 4px;
+    background: #151829;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.powerup-bar-fill {
+    height: 100%;
+    width: 100%;
+    transition: width 0.1s linear;
+}
+
+/* Control Hint styles */
+.controls-hint {
+    flex-grow: 0.5;
+    font-size: 12px;
+    color: #8c9ba5;
+    line-height: 1.6;
+}
+
+/* Diagnostics HUD */
+.diagnostics {
+    font-size: 12px;
+}
+
+.diag-line {
+    margin-top: 8px;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px dashed rgba(26, 28, 53, 0.8);
+    padding-bottom: 4px;
+}
+
+/* Logs Panel Console styling */
+.log-console {
+    flex-grow: 2;
+}
+
+.log-lines {
+    font-size: 11px;
+    color: #a0aec0;
+    overflow-y: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+    font-family: 'Share Tech Mono', monospace;
+}
+
+.log-line {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+/* Arena / Center Wrapper */
+.arena-wrapper {
+    position: relative;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+    background: #000;
+}
+
+#game-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* Canvas UI Overlay Panels */
+.overlay-panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(5, 5, 10, 0.9);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    z-index: 100;
+    opacity: 1;
+    transition: opacity 0.5s ease;
+    backdrop-filter: blur(8px);
+}
+
+.overlay-panel.hidden {
+    opacity: 0;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.glitch-title-large {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 64px;
+    font-weight: 900;
+    letter-spacing: 8px;
+    color: #fff;
+    text-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
+    position: relative;
+}
+
+.glitch-title-large::before, .glitch-title-large::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+}
+
+.glitch-title-large::before {
+    left: 3px;
+    text-shadow: -3px 0 var(--neon-magenta);
+    clip: rect(24px, 750px, 45px, 0);
+    animation: glitch-anim 3s infinite linear alternate-reverse;
+}
+
+.glitch-title-large::after {
+    left: -3px;
+    text-shadow: -3px 0 var(--neon-cyan), 0 3px var(--neon-magenta);
+    clip: rect(75px, 750px, 120px, 0);
+    animation: glitch-anim2 3s infinite linear alternate-reverse;
+}
+
+.error-glitch {
+    color: var(--neon-magenta);
+    text-shadow: 0 0 15px rgba(255, 0, 85, 0.5);
+}
+
+.error-glitch::before {
+    text-shadow: -3px 0 #fff;
+}
+
+.error-glitch::after {
+    text-shadow: -3px 0 var(--neon-cyan), 0 3px #fff;
+}
+
+.success-glitch {
+    color: var(--neon-green);
+    text-shadow: 0 0 15px rgba(5, 255, 80, 0.5);
+}
+
+.success-glitch::before {
+    text-shadow: -3px 0 #fff;
+}
+
+.success-glitch::after {
+    text-shadow: -3px 0 var(--neon-yellow), 0 3px #fff;
+}
+
+.subtitle {
+    font-size: 14px;
+    letter-spacing: 4px;
+    margin-top: -10px;
+}
+
+.menu-options {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 300px;
+}
+
+.high-score-display {
+    font-size: 14px;
+    letter-spacing: 2px;
+    margin-top: 15px;
+    color: #4a5468;
+}
+
+.stats-summary {
+    text-align: center;
+    font-size: 18px;
+    line-height: 1.8;
+    letter-spacing: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(26, 28, 53, 0.3);
+    padding: 15px 30px;
+    border-radius: 4px;
+    min-width: 250px;
+}
+
+/* Cyber Button Styling */
+.cyber-btn {
+    position: relative;
+    padding: 14px 28px;
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.3s;
+    width: 100%;
+}
+
+.btn-slice {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    clip-path: polygon(0 0, 92% 0, 100% 30%, 100% 100%, 8% 100%, 0 70%);
+    transition: all 0.2s;
+    z-index: 1;
+}
+
+.btn-text {
+    position: relative;
+    z-index: 2;
+}
+
+/* Button Themes */
+.cyan-theme .btn-slice {
+    border-color: var(--neon-cyan);
+    box-shadow: inset 0 0 4px rgba(0, 240, 255, 0.2);
+}
+
+.cyan-theme:hover {
+    color: #000;
+}
+
+.cyan-theme:hover .btn-slice {
+    background: var(--neon-cyan);
+    box-shadow: var(--shadow-cyan);
+}
+
+.magenta-theme .btn-slice {
+    border-color: var(--neon-magenta);
+    box-shadow: inset 0 0 4px rgba(255, 0, 85, 0.2);
+}
+
+.magenta-theme:hover {
+    color: #000;
+}
+
+.magenta-theme:hover .btn-slice {
+    background: var(--neon-magenta);
+    box-shadow: var(--shadow-magenta);
+}
+
+/* Yellow button theme */
+.yellow-theme .btn-slice {
+    border-color: var(--neon-yellow);
+    box-shadow: inset 0 0 4px rgba(255, 183, 0, 0.2);
+}
+
+.yellow-theme:hover {
+    color: #000;
+}
+
+.yellow-theme:hover .btn-slice {
+    background: var(--neon-yellow);
+    box-shadow: var(--shadow-yellow);
+}
+
+.green-theme .btn-slice {
+    border-color: var(--neon-green);
+    box-shadow: inset 0 0 4px rgba(5, 255, 80, 0.2);
+}
+
+.green-theme:hover {
+    color: #000;
+}
+
+.green-theme:hover .btn-slice {
+    background: var(--neon-green);
+    box-shadow: var(--shadow-green);
+}
+
+/* In-game Floating Alert */
+#game-alert {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 36px;
+    font-weight: 900;
+    letter-spacing: 4px;
+    text-align: center;
+    color: #fff;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+    pointer-events: none;
+    z-index: 50;
+    animation: alert-in-out 1.5s ease-out forwards;
+}
+
+#game-alert.hidden {
+    display: none;
+    animation: none;
+}
+
+/* Neon Text Helpers */
+.neon-cyan {
+    color: var(--neon-cyan);
+    text-shadow: var(--shadow-cyan);
+}
+
+.neon-magenta {
+    color: var(--neon-magenta);
+    text-shadow: var(--shadow-magenta);
+}
+
+.neon-yellow {
+    color: var(--neon-yellow);
+    text-shadow: var(--shadow-yellow);
+}
+
+.neon-green {
+    color: var(--neon-green);
+    text-shadow: var(--shadow-green);
+}
+
+.font-orbitron {
+    font-family: 'Orbitron', sans-serif;
+}
+
+/* Animations */
+@keyframes glitch-anim {
+    0% {
+        clip: rect(31px, 9999px, 94px, 0);
+    }
+    10% {
+        clip: rect(112px, 9999px, 76px, 0);
+    }
+    20% {
+        clip: rect(85px, 9999px, 5px, 0);
+    }
+    30% {
+        clip: rect(27px, 9999px, 115px, 0);
+    }
+    40% {
+        clip: rect(73px, 9999px, 29px, 0);
+    }
+    50% {
+        clip: rect(114px, 9999px, 92px, 0);
+    }
+    60% {
+        clip: rect(9px, 9999px, 140px, 0);
+    }
+    70% {
+        clip: rect(138px, 9999px, 48px, 0);
+    }
+    80% {
+        clip: rect(4px, 9999px, 77px, 0);
+    }
+    90% {
+        clip: rect(104px, 9999px, 120px, 0);
+    }
+    100% {
+        clip: rect(54px, 9999px, 62px, 0);
+    }
+}
+
+@keyframes glitch-anim2 {
+    0% {
+        clip: rect(76px, 9999px, 116px, 0);
+    }
+    11% {
+        clip: rect(10px, 9999px, 48px, 0);
+    }
+    22% {
+        clip: rect(122px, 9999px, 137px, 0);
+    }
+    33% {
+        clip: rect(95px, 9999px, 8px, 0);
+    }
+    44% {
+        clip: rect(33px, 9999px, 56px, 0);
+    }
+    55% {
+        clip: rect(139px, 9999px, 27px, 0);
+    }
+    66% {
+        clip: rect(53px, 9999px, 84px, 0);
+    }
+    77% {
+        clip: rect(18px, 9999px, 102px, 0);
+    }
+    88% {
+        clip: rect(126px, 9999px, 91px, 0);
+    }
+    100% {
+        clip: rect(67px, 9999px, 148px, 0);
+    }
+}
+
+@keyframes alert-in-out {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.6) rotate(-5deg);
+    }
+    15% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.1) rotate(2deg);
+    }
+    25% {
+        transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    }
+    75% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1.5) rotate(5deg);
+    }
+}
+
+/* Scrollbar styles */
+#powerup-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+#powerup-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#powerup-list::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 2px;
+}
+
+#powerup-list::-webkit-scrollbar-thumb:hover {
+    background: var(--neon-cyan);
+}
+
+/* Shop UI */
+.shop-balance {
+    font-size: 24px;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+    font-family: 'Orbitron', sans-serif;
+}
+.shop-items-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    width: 90%;
+    max-height: 380px;
+    overflow-y: auto;
+    padding: 10px;
+}
+.shop-item-card {
+    background: rgba(13, 14, 25, 0.9);
+    border: 1px solid var(--border-color);
+    padding: 15px;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s;
+}
+.shop-item-card:hover {
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+}
+.shop-item-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-align: center;
+}
+.shop-item-desc {
+    font-size: 12px;
+    color: #a0aab8;
+    text-align: center;
+    min-height: 36px;
+    line-height: 1.4;
+}
+.shop-item-buy-btn {
+    padding: 8px 16px;
+    font-size: 12px;
+    width: auto;
+    min-width: 100px;
+}
+.shop-item-buy-btn.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+    border-color: #555;
+    color: #888;
+}
+
+/* Scrollbar styles for shop */
+.shop-items-container::-webkit-scrollbar {
+    width: 4px;
+}
+
+.shop-items-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.shop-items-container::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 2px;
+}
+
+.shop-items-container::-webkit-scrollbar-thumb:hover {
+    background: var(--neon-cyan);
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Horizontal alignment row for menu buttons */
+.menu-row {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+}
+
+/* Small square cyber button */
+.cyber-btn.square-btn {
+    width: 46px;
+    height: 46px;
+    padding: 0;
+    flex-shrink: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
