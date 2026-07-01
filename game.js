@@ -1235,6 +1235,13 @@ function startBgMusic() {
         110.00, 98.00, 73.42, 65.41   // A2, G2, D2, C2
     ];
 
+    const leadMelody = [
+        329.63, 0, 392.00, 523.25, 493.88, 0, 392.00, 329.63, // E4, 0, G4, C5, B4, 0, G4, E4
+        440.00, 0, 440.00, 587.33, 523.25, 493.88, 392.00, 293.66, // A4, 0, A4, D5, C5, B4, G4, D4
+        329.63, 329.63, 0, 392.00, 493.88, 523.25, 0, 587.33, // E4, E4, 0, G4, B4, C5, 0, D5
+        440.00, 0, 392.00, 329.63, 293.66, 0, 329.63, 0 // A4, 0, G4, E4, D4, 0, E4, 0
+    ];
+
     function playStep() {
         if (!audioCtx) return;
         
@@ -1282,6 +1289,35 @@ function startBgMusic() {
             
             osc.start(now);
             osc.stop(now + stepDuration);
+            
+            // 1a. Synthesize Lead Pluck Melody with Echo Delay
+            const leadFreq = leadMelody[musicStep % leadMelody.length];
+            if (leadFreq > 0) {
+                // Main Pluck
+                const lOsc = audioCtx.createOscillator();
+                const lGain = audioCtx.createGain();
+                lOsc.type = 'triangle';
+                lOsc.frequency.setValueAtTime(leadFreq * pitchMultiplier, now);
+                lGain.gain.setValueAtTime(0.04, now);
+                lGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+                lOsc.connect(lGain);
+                lGain.connect(masterGain);
+                lOsc.start(now);
+                lOsc.stop(now + 0.16);
+                
+                // Echo Pluck (scheduled stepDuration / 2 later)
+                const delayTime = now + stepDuration / 2;
+                const eOsc = audioCtx.createOscillator();
+                const eGain = audioCtx.createGain();
+                eOsc.type = 'triangle';
+                eOsc.frequency.setValueAtTime(leadFreq * pitchMultiplier, delayTime);
+                eGain.gain.setValueAtTime(0.015, delayTime);
+                eGain.gain.exponentialRampToValueAtTime(0.001, delayTime + 0.12);
+                eOsc.connect(eGain);
+                eGain.connect(masterGain);
+                eOsc.start(delayTime);
+                eOsc.stop(delayTime + 0.13);
+            }
             
             // 2. Synthesize Drum beat (4/4 Kick and Snare)
             const beatStep = musicStep % 8;
@@ -1422,25 +1458,50 @@ function playSound(type) {
             break;
             
         case 'hit_red':
-            // Deep explosion sound
+            // 1. Deep sub-bass rumble
             const oscE = audioCtx.createOscillator();
             const gainE = audioCtx.createGain();
             oscE.type = 'sawtooth';
             oscE.frequency.setValueAtTime(100, now);
-            oscE.frequency.exponentialRampToValueAtTime(30, now + 0.25);
+            oscE.frequency.linearRampToValueAtTime(10, now + 0.4);
             gainE.gain.setValueAtTime(0.3, now);
-            gainE.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+            gainE.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
             
-            // Low-pass filter to make it beefy
             const lp = audioCtx.createBiquadFilter();
             lp.type = 'lowpass';
-            lp.frequency.setValueAtTime(180, now);
+            lp.frequency.setValueAtTime(120, now);
             
             oscE.connect(lp);
             lp.connect(gainE);
             gainE.connect(masterGain);
             oscE.start(now);
-            oscE.stop(now + 0.3);
+            oscE.stop(now + 0.45);
+
+            // 2. High-energy white noise blast
+            const bufSize = audioCtx.sampleRate * 0.35;
+            const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+            const bufData = buf.getChannelData(0);
+            for (let i = 0; i < bufSize; i++) {
+                bufData[i] = Math.random() * 2 - 1;
+            }
+            const noiseSource = audioCtx.createBufferSource();
+            noiseSource.buffer = buf;
+            
+            const bpFilter = audioCtx.createBiquadFilter();
+            bpFilter.type = 'lowpass';
+            bpFilter.frequency.setValueAtTime(300, now);
+            bpFilter.frequency.exponentialRampToValueAtTime(50, now + 0.3);
+            
+            const noiseGain = audioCtx.createGain();
+            noiseGain.gain.setValueAtTime(0.25, now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+            
+            noiseSource.connect(bpFilter);
+            bpFilter.connect(noiseGain);
+            noiseGain.connect(masterGain);
+            
+            noiseSource.start(now);
+            noiseSource.stop(now + 0.35);
             break;
             
         case 'laser':
@@ -1487,6 +1548,41 @@ function playSound(type) {
             gainLost.connect(masterGain);
             oscLost.start(now);
             oscLost.stop(now + 0.62);
+            break;
+
+        case 'victory':
+            // Triumphant ascending arpeggio (C major triad up)
+            const vNotes = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98, 2093.00]; // C5, E5, G5, C6, E6, G6, C7
+            vNotes.forEach((f, i) => {
+                const o = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                o.type = 'triangle';
+                o.frequency.setValueAtTime(f, now + i * 0.06);
+                g.gain.setValueAtTime(0.08, now + i * 0.06);
+                g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.06 + 0.15);
+                o.connect(g);
+                g.connect(masterGain);
+                o.start(now + i * 0.06);
+                o.stop(now + i * 0.06 + 0.18);
+            });
+            break;
+
+        case 'gameover':
+            // Glitchy downward descending sweep chord
+            const gNotes = [987.77, 783.99, 659.25, 493.88, 392.00, 329.63, 246.94]; // B5, G5, E5, B4, G4, E4, B3
+            gNotes.forEach((f, i) => {
+                const o = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                o.type = 'sawtooth';
+                o.frequency.setValueAtTime(f, now + i * 0.1);
+                o.frequency.linearRampToValueAtTime(f * 0.7, now + i * 0.1 + 0.2); // downward bend
+                g.gain.setValueAtTime(0.1, now + i * 0.1);
+                g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.25);
+                o.connect(g);
+                g.connect(masterGain);
+                o.start(now + i * 0.1);
+                o.stop(now + i * 0.1 + 0.26);
+            });
             break;
     }
 }
@@ -2889,6 +2985,7 @@ function handleLifeLost() {
 }
 
 function gameOver() {
+    playSound('gameover');
     state.mode = 'GAMEOVER';
     
     // Clear Endless save state since game is over
@@ -3428,6 +3525,7 @@ function startNextLevel() {
 }
 
 function gameVictory() {
+    playSound('victory');
     state.mode = 'VICTORY';
     
     const finalScoreInt = Math.floor(state.score);
