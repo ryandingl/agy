@@ -1527,6 +1527,23 @@ function initEntities() {
         draw(c = ctx) {
             const active = state.skins ? state.skins.paddle.active : 0;
             const skin = SKINS_CONFIG.paddle[active] || SKINS_CONFIG.paddle[0];
+            
+            // Draw chromatic aberration copies if screen shake is active
+            if (state.screenShake > 0 && c === ctx) {
+                const offset = state.screenShake * 0.4;
+                c.save();
+                c.translate(-offset, 0);
+                c.globalCompositeOperation = 'screen';
+                skin.draw(this, c);
+                c.restore();
+                
+                c.save();
+                c.translate(offset, 0);
+                c.globalCompositeOperation = 'screen';
+                skin.draw(this, c);
+                c.restore();
+            }
+            
             skin.draw(this, c);
             
             // Draw laser cannons if laser mod is active
@@ -1648,6 +1665,22 @@ function spawnBall(x, y, attachToPaddle = false) {
                 c.fill();
             });
             c.restore();
+            
+            // Draw chromatic aberration copies if screen shake is active
+            if (state.screenShake > 0 && c === ctx) {
+                const offset = state.screenShake * 0.4;
+                c.save();
+                c.translate(-offset, 0);
+                c.globalCompositeOperation = 'screen';
+                skin.draw(this, c);
+                c.restore();
+                
+                c.save();
+                c.translate(offset, 0);
+                c.globalCompositeOperation = 'screen';
+                skin.draw(this, c);
+                c.restore();
+            }
             
             // Draw ball
             skin.draw(this, c);
@@ -3445,39 +3478,53 @@ function draw() {
         const boss = state.boss;
         ctx.save();
         
-        // 1. Draw Boss Core (Fortress node)
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = '#ff0055';
-        ctx.fillStyle = '#110a15'; // dark core body
-        ctx.strokeStyle = '#ff0055'; // glowing red outline
-        ctx.lineWidth = 3;
+        function drawBossCore(c, offsetX = 0) {
+            c.save();
+            c.translate(offsetX, 0);
+            c.shadowBlur = 20;
+            c.shadowColor = '#ff0055';
+            c.fillStyle = '#110a15'; // dark core body
+            c.strokeStyle = '#ff0055'; // glowing red outline
+            c.lineWidth = 3;
+            
+            c.beginPath();
+            c.moveTo(boss.x, boss.y + 15);
+            c.lineTo(boss.x + 30, boss.y);
+            c.lineTo(boss.x + boss.width - 30, boss.y);
+            c.lineTo(boss.x + boss.width, boss.y + 15);
+            c.lineTo(boss.x + boss.width - 15, boss.y + boss.height);
+            c.lineTo(boss.x + 15, boss.y + boss.height);
+            c.closePath();
+            c.fill();
+            c.stroke();
+            
+            // Tech details inside boss core
+            c.strokeStyle = 'rgba(255, 0, 85, 0.4)';
+            c.lineWidth = 1;
+            c.beginPath();
+            c.moveTo(boss.x + 20, boss.y + boss.height/2);
+            c.lineTo(boss.x + boss.width - 20, boss.y + boss.height/2);
+            c.stroke();
+            
+            // Pulsing power core
+            const pulse = 1.0 + Math.sin(Date.now() / 100) * 0.2;
+            c.fillStyle = '#ff0055';
+            c.shadowColor = '#ff0055';
+            c.beginPath();
+            c.arc(boss.x + boss.width / 2, boss.y + boss.height / 2, 10 * pulse, 0, Math.PI * 2);
+            c.fill();
+            c.restore();
+        }
         
-        ctx.beginPath();
-        ctx.moveTo(boss.x, boss.y + 15);
-        ctx.lineTo(boss.x + 30, boss.y);
-        ctx.lineTo(boss.x + boss.width - 30, boss.y);
-        ctx.lineTo(boss.x + boss.width, boss.y + 15);
-        ctx.lineTo(boss.x + boss.width - 15, boss.y + boss.height);
-        ctx.lineTo(boss.x + 15, boss.y + boss.height);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-        
-        // Tech details inside boss core
-        ctx.strokeStyle = 'rgba(255, 0, 85, 0.4)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(boss.x + 20, boss.y + boss.height/2);
-        ctx.lineTo(boss.x + boss.width - 20, boss.y + boss.height/2);
-        ctx.stroke();
-        
-        // Pulsing power core
-        const pulse = 1.0 + Math.sin(Date.now() / 100) * 0.2;
-        ctx.fillStyle = '#ff0055';
-        ctx.shadowColor = '#ff0055';
-        ctx.beginPath();
-        ctx.arc(boss.x + boss.width / 2, boss.y + boss.height / 2, 10 * pulse, 0, Math.PI * 2);
-        ctx.fill();
+        if (state.screenShake > 0) {
+            const offset = state.screenShake * 0.4;
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            drawBossCore(ctx, -offset);
+            drawBossCore(ctx, offset);
+            ctx.restore();
+        }
+        drawBossCore(ctx, 0);
         
         // 2. Draw Shield Halo if active
         if (boss.shieldHp > 0) {
