@@ -1771,9 +1771,15 @@ function generateBricks() {
             } else if (brickType === 4) {
                 maxHp = 1;
                 color = '#ff3333'; // Explosive
+            } else if (brickType === 5) {
+                maxHp = 99999; // Indestructible
+                color = '#78909c'; // Steel metallic grey
+            } else if (brickType === 6) {
+                maxHp = 2;
+                color = '#ff6a00'; // Volatile Core orange
             }
             
-            bricks.push({
+            const newBrick = {
                 c: c,
                 r: r,
                 x: c * (BRICK_WIDTH + BRICK_PADDING) + BRICK_OFFSET_LEFT,
@@ -1785,6 +1791,11 @@ function generateBricks() {
                 maxHp: maxHp,
                 color: color,
                 hit(damage = 1) {
+                    if (this.type === 5) {
+                        playSound('hit_yellow'); // Metal hit clang
+                        spawnParticles(this.x + this.width/2, this.y + this.height/2, '#00ffff', 4);
+                        return false; // Indestructible
+                    }
                     this.hp -= damage;
                     if (this.hp <= 0) {
                         this.destroy();
@@ -1793,6 +1804,10 @@ function generateBricks() {
                         // Play normal deflection beep
                         if (this.type === 2) playSound('hit_magenta');
                         if (this.type === 3) playSound('hit_yellow');
+                        if (this.type === 6) {
+                            playSound('hit_magenta');
+                            this.color = '#ffaa44'; // turn lighter when damaged
+                        }
                         
                         // Spawn light particle dust
                         spawnParticles(this.x + this.width/2, this.y + this.height/2, this.color, 4);
@@ -1805,6 +1820,7 @@ function generateBricks() {
                     if (this.type === 2) baseVal = 2.0;
                     if (this.type === 3) baseVal = 4.0;
                     if (this.type === 4) baseVal = 2.5;
+                    if (this.type === 6) baseVal = 5.0; // Higher reward for core
                     
                     state.score += baseVal * state.multiplier;
                     const isSynthWave = (state.skins && state.skins.theme && state.skins.theme.active === 1);
@@ -1817,8 +1833,11 @@ function generateBricks() {
                     if (this.type === 4) {
                         playSound('hit_red');
                         triggerScreenShake(8);
-                        // Explode neighboring bricks
                         detonateExplosive(this);
+                    } else if (this.type === 6) {
+                        playSound('hit_red');
+                        triggerScreenShake(12);
+                        detonateExplosiveVolatile(this);
                     } else {
                         const hitSnd = this.type === 2 ? 'hit_magenta' : (this.type === 3 ? 'hit_yellow' : 'hit_cyan');
                         playSound(hitSnd);
@@ -1831,6 +1850,75 @@ function generateBricks() {
                     }
                 },
                 draw(c = ctx) {
+                    if (this.type === 5) {
+                        c.save();
+                        c.shadowBlur = 12;
+                        c.shadowColor = '#00ffff';
+                        c.fillStyle = '#1e2430'; // dark metallic grey
+                        c.strokeStyle = '#00ffff'; // glowing cyan borders
+                        c.lineWidth = 2.0;
+                        c.fillRect(this.x, this.y, this.width, this.height);
+                        c.strokeRect(this.x, this.y, this.width, this.height);
+                        
+                        // Shield diagonal metallic lines
+                        c.strokeStyle = 'rgba(0, 255, 255, 0.25)';
+                        c.lineWidth = 1.5;
+                        c.beginPath();
+                        c.moveTo(this.x + 8, this.y + 2);
+                        c.lineTo(this.x + 2, this.y + 8);
+                        c.moveTo(this.x + this.width - 8, this.y + this.height - 2);
+                        c.lineTo(this.x + this.width - 2, this.y + this.height - 8);
+                        c.stroke();
+                        
+                        // Shield icon symbol inside
+                        c.fillStyle = '#00ffff';
+                        c.beginPath();
+                        const cx = this.x + this.width / 2;
+                        const cy = this.y + this.height / 2;
+                        c.moveTo(cx - 6, cy - 5);
+                        c.lineTo(cx + 6, cy - 5);
+                        c.lineTo(cx + 4, cy + 2);
+                        c.quadraticCurveTo(cx, cy + 6, cx, cy + 8);
+                        c.quadraticCurveTo(cx, cy + 6, cx - 4, cy + 2);
+                        c.closePath();
+                        c.fill();
+                        c.restore();
+                        return;
+                    }
+                    
+                    if (this.type === 6) {
+                        c.save();
+                        c.shadowBlur = 15;
+                        c.shadowColor = '#ff6a00';
+                        const alpha = this.hp / this.maxHp;
+                        c.fillStyle = `rgba(255, 106, 0, ${alpha * 0.4 + 0.3})`;
+                        c.strokeStyle = '#ff6a00';
+                        c.lineWidth = 2.0;
+                        c.fillRect(this.x, this.y, this.width, this.height);
+                        c.strokeRect(this.x, this.y, this.width, this.height);
+                        
+                        // Draw pulsing core ring inside
+                        const pulse = 1.0 + Math.sin(Date.now() / 80) * 0.15;
+                        c.strokeStyle = '#ffffff';
+                        c.shadowColor = '#ffffff';
+                        c.lineWidth = 1;
+                        c.beginPath();
+                        c.arc(this.x + this.width/2, this.y + this.height/2, 6 * pulse, 0, Math.PI * 2);
+                        c.stroke();
+                        
+                        // Hazard warning stripes
+                        c.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                        c.lineWidth = 2;
+                        c.beginPath();
+                        c.moveTo(this.x + 3, this.y + 3);
+                        c.lineTo(this.x + 10, this.y + 10);
+                        c.moveTo(this.x + this.width - 3, this.y + 3);
+                        c.lineTo(this.x + this.width - 10, this.y + 10);
+                        c.stroke();
+                        c.restore();
+                        return;
+                    }
+                    
                     const active = state.skins ? state.skins.brick.active : 0;
                     const skin = SKINS_CONFIG.brick[active] || SKINS_CONFIG.brick[0];
                     skin.draw(this, c);
@@ -1841,7 +1929,13 @@ function generateBricks() {
                     const b = parseInt(hex.slice(5, 7), 16);
                     return `${r}, ${g}, ${b}`;
                 }
-            });
+            };
+            
+            if (brickType === 5) {
+                newBrick.vx = (c % 2 === 0 ? 1 : -1) * 0.8;
+            }
+            
+            bricks.push(newBrick);
         }
     }
 }
@@ -1864,6 +1958,59 @@ function detonateExplosive(sourceBrick) {
             setTimeout(() => {
                 b.hit(2);
             }, 80 + dist * 0.5); // Stagger explosions slightly for a cool domino effect
+        }
+    });
+}
+
+function detonateExplosiveVolatile(sourceBrick) {
+    const radius = 150; // Pixels
+    const centerX = sourceBrick.x + sourceBrick.width/2;
+    const centerY = sourceBrick.y + sourceBrick.height/2;
+    
+    // Create extra glowing particles ring
+    for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
+        const speed = 4 + Math.random() * 2;
+        particles.push({
+            x: centerX,
+            y: centerY,
+            vx: speed * Math.cos(angle),
+            vy: speed * Math.sin(angle),
+            radius: 3,
+            color: '#ff6a00',
+            life: 0,
+            maxLife: 40 + Math.random() * 20,
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = 1 - (this.life / this.maxLife);
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            },
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vx *= 0.95; // friction
+                this.vy *= 0.95;
+                this.life++;
+            }
+        });
+    }
+    
+    // Damage surrounding bricks
+    bricks.forEach(b => {
+        if (b === sourceBrick || b.hp <= 0 || b.type === 5) return; // ignore indestructible
+        const bCenterX = b.x + b.width/2;
+        const bCenterY = b.y + b.height/2;
+        const dist = Math.hypot(centerX - bCenterX, centerY - bCenterY);
+        
+        if (dist <= radius) {
+            setTimeout(() => {
+                b.hit(3); // Inflicts 3 HP damage (usually kills cyan/magenta instantly)
+            }, 60 + dist * 0.4);
         }
     });
 }
@@ -2071,9 +2218,28 @@ function renderPowerupListHUD() {
     });
 }
 
+function updateSpecialBricks() {
+    bricks.forEach(b => {
+        if (b.type === 5 && b.hp > 0) {
+            b.x += b.vx;
+            // Bounce off boundaries of screen
+            if (b.x <= 15) {
+                b.x = 15;
+                b.vx = -b.vx;
+            } else if (b.x + b.width >= CANVAS_WIDTH - 15) {
+                b.x = CANVAS_WIDTH - 15 - b.width;
+                b.vx = -b.vx;
+            }
+        }
+    });
+}
+
 // --- CORE PHYSICS LOOP & COLLISIONS ---
 
 function updatePhysics() {
+    // Update moving special bricks
+    updateSpecialBricks();
+    
     // 1. Move Paddle
     let targetX = paddle.x;
     if (state.inputMode === 'mouse') {
@@ -2277,7 +2443,7 @@ function updatePhysics() {
     }
     
     // Check Level Complete Victory Conditions
-    const remainingBricks = bricks.filter(b => b.hp > 0);
+    const remainingBricks = bricks.filter(b => b.hp > 0 && b.type !== 5);
     if (remainingBricks.length === 0) {
         handleLevelComplete();
     }
