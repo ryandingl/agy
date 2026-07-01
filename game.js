@@ -1153,7 +1153,10 @@ const POWERUP_TYPES = {
     MULTIBALL: { label: 'SPLIT_CORE', color: '#ffb700', desc: '分裂多球' },
     WIDE: { label: 'WIDE_LINK', color: '#0044ff', desc: '加宽挡板' },
     SHIELD: { label: 'NET_SHIELD', color: '#05ff50', desc: '底部防护盾' },
-    SLOW: { label: 'TIME_DILATION', color: '#aa00ff', desc: '球速减慢' }
+    SLOW: { label: 'TIME_DILATION', color: '#aa00ff', desc: '球速减慢' },
+    GLITCH_FIELD: { label: 'GLITCH_FIELD', color: '#00ffff', desc: '干扰场 (随机损伤砖块)' },
+    GRAVITY_WELL: { label: 'GRAVITY_WELL', color: '#b700ff', desc: '重力井 (弱引力辅助)' },
+    MIRROR_WALL: { label: 'MIRROR_WALL', color: '#00e5ff', desc: '镜像壁 (保护底部死角)' }
 };
 
 // Active power-up durations
@@ -1585,6 +1588,18 @@ function spawnBall(x, y, attachToPaddle = false) {
             this.trail.push({ x: this.x, y: this.y });
             if (this.trail.length > 8) this.trail.shift();
             
+            // Apply gravity well effect if active
+            if (activeMods['GRAVITY_WELL'] > 0 && !this.attached) {
+                if (this.y > CANVAS_HEIGHT * 0.70) {
+                    const paddleCenterX = paddle.x + paddle.width / 2;
+                    const dx = paddleCenterX - this.x;
+                    const pullStrength = 0.08;
+                    this.vx += Math.sign(dx) * pullStrength;
+                    const maxVx = 8;
+                    this.vx = Math.min(maxVx, Math.max(-maxVx, this.vx));
+                }
+            }
+            
             // Perform movement
             this.x += this.vx;
             this.y += this.vy;
@@ -1607,6 +1622,16 @@ function spawnBall(x, y, attachToPaddle = false) {
                 this.vy = -this.vy;
                 playSound('bounce');
                 triggerScreenShake(2);
+            }
+            
+            // Collide mirror walls if active
+            if (activeMods['MIRROR_WALL'] > 0) {
+                if ((this.x < 120 || this.x > CANVAS_WIDTH - 120) && this.y + this.radius >= CANVAS_HEIGHT - 20) {
+                    this.y = CANVAS_HEIGHT - 20 - this.radius;
+                    this.vy = -Math.abs(this.vy);
+                    playSound('bounce');
+                    triggerScreenShake(4);
+                }
             }
         },
         draw(c = ctx) {
@@ -1935,9 +1960,44 @@ function applyPowerup(pType, pConf) {
             });
             activeMods['SLOW'] = 350;
             break;
+
+        case 'GLITCH_FIELD':
+            // Inflict random damage to active bricks
+            let activeBricks = bricks.filter(b => b.hp > 0);
+            let glitchCount = Math.min(activeBricks.length, Math.floor(Math.random() * 3) + 4); // 4-6
+            for (let i = 0; i < glitchCount; i++) {
+                let idx = Math.floor(Math.random() * activeBricks.length);
+                let b = activeBricks.splice(idx, 1)[0];
+                if (b) {
+                    b.hit(Math.floor(Math.random() * 2) + 1); // 1-2 damage
+                    spawnParticles(b.x + b.width/2, b.y + b.height/2, '#00ffff', 10);
+                }
+            }
+            triggerScreenShake(15);
+            playSound('hit_red'); // Play loud explosion
+            triggerGlitchAlert("GLITCH FIELD DETECTED // 故障干扰已加载");
+            break;
+            
+        case 'GRAVITY_WELL':
+            activeMods['GRAVITY_WELL'] = 450; // frames
+            break;
+            
+        case 'MIRROR_WALL':
+            activeMods['MIRROR_WALL'] = 500; // frames
+            break;
     }
     
     renderPowerupListHUD();
+}
+
+function triggerGlitchAlert(text) {
+    const alertBox = document.getElementById('game-alert');
+    if (!alertBox) return;
+    alertBox.innerText = text;
+    alertBox.classList.remove('hidden');
+    setTimeout(() => {
+        alertBox.classList.add('hidden');
+    }, 1500);
 }
 
 function fireLasers() {
@@ -1990,7 +2050,11 @@ function renderPowerupListHUD() {
         
         let pct = 100;
         if (k !== 'SHIELD') {
-            const maxVal = k === 'LASER' ? 400 : (k === 'WIDE' ? 500 : 350);
+            let maxVal = 350;
+            if (k === 'LASER') maxVal = 400;
+            else if (k === 'WIDE') maxVal = 500;
+            else if (k === 'GRAVITY_WELL') maxVal = 450;
+            else if (k === 'MIRROR_WALL') maxVal = 500;
             pct = (val / maxVal) * 100;
         }
         
@@ -2887,6 +2951,53 @@ function draw() {
         ctx.beginPath();
         ctx.moveTo(0, CANVAS_HEIGHT - 12);
         ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - 12);
+        ctx.stroke();
+        ctx.restore();
+    }
+    
+    // Draw bottom side stabilizers (MIRROR_WALL) if active
+    if (activeMods['MIRROR_WALL'] > 0) {
+        ctx.save();
+        ctx.strokeStyle = '#00e5ff';
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#00e5ff';
+        ctx.lineWidth = 4;
+        // Left corner stabilizer
+        ctx.beginPath();
+        ctx.moveTo(0, CANVAS_HEIGHT - 20);
+        ctx.lineTo(120, CANVAS_HEIGHT - 20);
+        ctx.stroke();
+        // Right corner stabilizer
+        ctx.beginPath();
+        ctx.moveTo(CANVAS_WIDTH - 120, CANVAS_HEIGHT - 20);
+        ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - 20);
+        ctx.stroke();
+        // Vertical side highlights for aesthetics
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, CANVAS_HEIGHT - 120);
+        ctx.lineTo(0, CANVAS_HEIGHT - 20);
+        ctx.moveTo(CANVAS_WIDTH, CANVAS_HEIGHT - 120);
+        ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - 20);
+        ctx.stroke();
+        ctx.restore();
+    }
+    
+    // Draw gravity well field if active
+    if (activeMods['GRAVITY_WELL'] > 0) {
+        ctx.save();
+        ctx.globalAlpha = 0.05 + Math.sin(Date.now() / 200) * 0.02;
+        ctx.fillStyle = '#b700ff';
+        ctx.fillRect(0, CANVAS_HEIGHT * 0.70, CANVAS_WIDTH, CANVAS_HEIGHT * 0.30);
+        
+        // Draw subtle horizontal lines showing gravity flow
+        ctx.globalAlpha = 0.15;
+        ctx.strokeStyle = '#b700ff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        const flowY = CANVAS_HEIGHT * 0.70 + (Date.now() / 15) % (CANVAS_HEIGHT * 0.30);
+        ctx.moveTo(0, flowY);
+        ctx.lineTo(CANVAS_WIDTH, flowY);
         ctx.stroke();
         ctx.restore();
     }
