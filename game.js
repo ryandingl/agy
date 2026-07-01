@@ -1744,8 +1744,131 @@ function createRandomSymmetricLayout(rows, cols) {
 // Generate level layout
 function generateBricks() {
     bricks = [];
-    let layout;
     
+    if (state.level % 5 === 0) {
+        state.bossActive = true;
+        state.boss = {
+            x: CANVAS_WIDTH / 2 - 80,
+            y: 80,
+            width: 160,
+            height: 60,
+            vx: 1.2,
+            hp: 30 + state.level * 6,
+            maxHp: 30 + state.level * 6,
+            shieldHp: 3,
+            maxShieldHp: 3,
+            fireTimer: 120,
+            bullets: []
+        };
+        
+        // Spawn defensive shield blocks and volatile core blocks in front of the boss
+        for (let c = 1; c < 9; c++) {
+            const brickType = (c % 2 === 0) ? 5 : 6;
+            let maxHp = (brickType === 5) ? 99999 : 2;
+            let color = (brickType === 5) ? '#78909c' : '#ff6a00';
+            
+            const newBrick = {
+                c: c,
+                r: 3,
+                x: c * (BRICK_WIDTH + BRICK_PADDING) + BRICK_OFFSET_LEFT,
+                y: 3 * (BRICK_HEIGHT + BRICK_PADDING) + BRICK_OFFSET_TOP + 80,
+                width: BRICK_WIDTH,
+                height: BRICK_HEIGHT,
+                type: brickType,
+                hp: maxHp,
+                maxHp: maxHp,
+                color: color,
+                hit(damage = 1) {
+                    if (this.type === 5) {
+                        playSound('hit_yellow');
+                        spawnParticles(this.x + this.width/2, this.y + this.height/2, '#00ffff', 4);
+                        return false;
+                    }
+                    this.hp -= damage;
+                    if (this.hp <= 0) {
+                        this.destroy();
+                        return true;
+                    } else {
+                        playSound('hit_magenta');
+                        spawnParticles(this.x + this.width/2, this.y + this.height/2, this.color, 4);
+                        return false;
+                    }
+                },
+                destroy() {
+                    state.score += 5.0 * state.multiplier;
+                    state.multiplier += 0.15;
+                    spawnParticles(this.x + this.width/2, this.y + this.height/2, this.color, 12);
+                    if (this.type === 6) {
+                        playSound('hit_red');
+                        triggerScreenShake(12);
+                        detonateExplosiveVolatile(this);
+                    } else {
+                        playSound('hit_cyan');
+                        triggerScreenShake(3);
+                    }
+                },
+                draw(c = ctx) {
+                    if (this.type === 5) {
+                        c.save();
+                        c.shadowBlur = 12;
+                        c.shadowColor = '#00ffff';
+                        c.fillStyle = '#1e2430';
+                        c.strokeStyle = '#00ffff';
+                        c.lineWidth = 2.0;
+                        c.fillRect(this.x, this.y, this.width, this.height);
+                        c.strokeRect(this.x, this.y, this.width, this.height);
+                        
+                        c.strokeStyle = 'rgba(0, 255, 255, 0.25)';
+                        c.lineWidth = 1.5;
+                        c.beginPath();
+                        c.moveTo(this.x + 8, this.y + 2);
+                        c.lineTo(this.x + 2, this.y + 8);
+                        c.moveTo(this.x + this.width - 8, this.y + this.height - 2);
+                        c.lineTo(this.x + this.width - 2, this.y + this.height - 8);
+                        c.stroke();
+                        c.restore();
+                        return;
+                    }
+                    if (this.type === 6) {
+                        c.save();
+                        c.shadowBlur = 15;
+                        c.shadowColor = '#ff6a00';
+                        const alpha = this.hp / this.maxHp;
+                        c.fillStyle = `rgba(255, 106, 0, ${alpha * 0.4 + 0.3})`;
+                        c.strokeStyle = '#ff6a00';
+                        c.lineWidth = 2.0;
+                        c.fillRect(this.x, this.y, this.width, this.height);
+                        c.strokeRect(this.x, this.y, this.width, this.height);
+                        
+                        const pulse = 1.0 + Math.sin(Date.now() / 80) * 0.15;
+                        c.strokeStyle = '#ffffff';
+                        c.lineWidth = 1;
+                        c.beginPath();
+                        c.arc(this.x + this.width/2, this.y + this.height/2, 6 * pulse, 0, Math.PI * 2);
+                        c.stroke();
+                        c.restore();
+                        return;
+                    }
+                },
+                hexToRgb(hex) {
+                    const r = parseInt(hex.slice(1, 3), 16);
+                    const g = parseInt(hex.slice(3, 5), 16);
+                    const b = parseInt(hex.slice(5, 7), 16);
+                    return `${r}, ${g}, ${b}`;
+                }
+            };
+            if (brickType === 5) {
+                newBrick.vx = (c % 2 === 0 ? 1 : -1) * 0.8;
+            }
+            bricks.push(newBrick);
+        }
+        return;
+    }
+    
+    state.bossActive = false;
+    state.boss = null;
+    
+    let layout;
     if (state.gameMode === 'ENDLESS') {
         const rows = Math.min(7, 4 + Math.floor((state.level - 1) / 3)); // 4 to 7 rows
         layout = createRandomSymmetricLayout(rows, BRICK_COLS);
@@ -2234,11 +2357,73 @@ function updateSpecialBricks() {
     });
 }
 
+function updateBoss() {
+    if (!state.bossActive || !state.boss) return;
+    const boss = state.boss;
+    
+    // Move boss horizontally
+    boss.x += boss.vx;
+    if (boss.x <= 20) {
+        boss.x = 20;
+        boss.vx = -boss.vx;
+    } else if (boss.x + boss.width >= CANVAS_WIDTH - 20) {
+        boss.x = CANVAS_WIDTH - 20 - boss.width;
+        boss.vx = -boss.vx;
+    }
+    
+    // Bullet shoot reload timer
+    boss.fireTimer--;
+    if (boss.fireTimer <= 0) {
+        // Spawn bullet from bottom center of boss
+        boss.bullets.push({
+            x: boss.x + boss.width / 2,
+            y: boss.y + boss.height,
+            vy: 3.5,
+            radius: 6,
+            color: '#ff3333'
+        });
+        playSound('laser');
+        boss.fireTimer = 140 + Math.random() * 80;
+    }
+    
+    // Update bullets
+    for (let i = boss.bullets.length - 1; i >= 0; i--) {
+        const bullet = boss.bullets[i];
+        bullet.y += bullet.vy;
+        
+        // Remove offscreen
+        if (bullet.y > CANVAS_HEIGHT) {
+            boss.bullets.splice(i, 1);
+            continue;
+        }
+        
+        // Check collision against paddle
+        if (bullet.y + bullet.radius >= paddle.y &&
+            bullet.y - bullet.radius <= paddle.y + paddle.height &&
+            bullet.x + bullet.radius >= paddle.x &&
+            bullet.x - bullet.radius <= paddle.x + paddle.width) {
+            
+            // Glitch shrink active debuff
+            activeMods['GLITCH_SHRINK'] = 180;
+            paddle.targetWidth = 60;
+            state.multiplier = Math.max(1.0, state.multiplier - 0.5);
+            playSound('lost');
+            triggerScreenShake(12);
+            triggerGlitchAlert("SYSTEM CORRUPTED // 挡板线宽系统被篡改");
+            
+            boss.bullets.splice(i, 1);
+        }
+    }
+}
+
 // --- CORE PHYSICS LOOP & COLLISIONS ---
 
 function updatePhysics() {
     // Update moving special bricks
     updateSpecialBricks();
+    
+    // Update active boss movements
+    updateBoss();
     
     // 1. Move Paddle
     let targetX = paddle.x;
@@ -2273,8 +2458,11 @@ function updatePhysics() {
                 if (m === 'WIDE') {
                     paddle.targetWidth = 120 * (1 + getPaddleSkinBonus());
                     paddle.color = '#0044ff';
+                } else if (m === 'GLITCH_SHRINK') {
+                    paddle.targetWidth = (activeMods['WIDE'] ? 180 : 120) * (1 + getPaddleSkinBonus());
                 }
-                addLogLine(`SYSTEM ALERT: MOD EXPIRED - ${POWERUP_TYPES[m].label}`);
+                const label = POWERUP_TYPES[m] ? `MOD EXPIRED - ${POWERUP_TYPES[m].label}` : `STATUS RESTORED - ${m}`;
+                addLogLine(`SYSTEM ALERT: ${label}`);
                 modsChanged = true;
             }
         }
@@ -2344,6 +2532,61 @@ function updatePhysics() {
         }
     }
     
+    // 4a. Ball-Boss Collisions
+    if (state.bossActive && state.boss) {
+        const boss = state.boss;
+        balls.forEach(b => {
+            if (b.attached) return;
+            
+            // Check AABB vs Circle
+            const closestX = Math.max(boss.x, Math.min(b.x, boss.x + boss.width));
+            const closestY = Math.max(boss.y, Math.min(b.y, boss.y + boss.height));
+            
+            const distanceX = b.x - closestX;
+            const distanceY = b.y - closestY;
+            const distanceSquared = (distanceX * distanceX) + (distanceY * distanceY);
+            
+            if (distanceSquared < (b.radius * b.radius)) {
+                // Collision detected!
+                const overlapX = b.radius - Math.abs(distanceX);
+                const overlapY = b.radius - Math.abs(distanceY);
+                
+                if (closestX === boss.x || closestX === boss.x + boss.width) {
+                    b.vx = -b.vx;
+                    b.x += b.vx > 0 ? overlapX : -overlapX;
+                } else {
+                    b.vy = -b.vy;
+                    b.y += b.vy > 0 ? overlapY : -overlapY;
+                }
+                
+                // Damage boss
+                if (boss.shieldHp > 0) {
+                    boss.shieldHp--;
+                    playSound('hit_yellow');
+                    triggerScreenShake(6);
+                    spawnParticles(closestX, closestY, '#00ffff', 8);
+                    addLogLine("BOSS SHIELD DEFLECTED. SHIELDS: " + boss.shieldHp);
+                } else {
+                    boss.hp--;
+                    playSound('hit_red');
+                    triggerScreenShake(10);
+                    spawnParticles(closestX, closestY, '#ff0055', 12);
+                    addLogLine("BOSS FIREWALL DAMAGE. HP: " + boss.hp);
+                    
+                    if (boss.hp <= 0) {
+                        triggerScreenShake(30);
+                        playSound('lost');
+                        spawnParticles(boss.x + boss.width/2, boss.y + boss.height/2, '#ff0055', 40);
+                        spawnParticles(boss.x + boss.width/2, boss.y + boss.height/2, '#00ffff', 40);
+                        state.bossActive = false;
+                        state.boss = null;
+                        handleLevelComplete();
+                    }
+                }
+            }
+        });
+    }
+    
     // 4. Ball-Brick Collisions
     balls.forEach(b => {
         if (b.attached) return;
@@ -2405,6 +2648,35 @@ function updatePhysics() {
                 b.hit(1); // Laser deal 1 damage
                 laserHit = true;
                 break;
+            }
+        }
+        
+        // Check boss collision
+        if (state.bossActive && state.boss && !laserHit) {
+            const boss = state.boss;
+            if (l.x >= boss.x && l.x <= boss.x + boss.width &&
+                l.y >= boss.y && l.y <= boss.y + boss.height) {
+                
+                laserHit = true;
+                if (boss.shieldHp > 0) {
+                    boss.shieldHp--;
+                    playSound('hit_yellow');
+                    spawnParticles(l.x, l.y, '#00ffff', 6);
+                } else {
+                    boss.hp--;
+                    playSound('hit_red');
+                    spawnParticles(l.x, l.y, '#ff0055', 8);
+                    
+                    if (boss.hp <= 0) {
+                        triggerScreenShake(30);
+                        playSound('lost');
+                        spawnParticles(boss.x + boss.width/2, boss.y + boss.height/2, '#ff0055', 40);
+                        spawnParticles(boss.x + boss.width/2, boss.y + boss.height/2, '#00ffff', 40);
+                        state.bossActive = false;
+                        state.boss = null;
+                        handleLevelComplete();
+                    }
+                }
             }
         }
         
@@ -3165,6 +3437,102 @@ function draw() {
         ctx.moveTo(0, flowY);
         ctx.lineTo(CANVAS_WIDTH, flowY);
         ctx.stroke();
+        ctx.restore();
+    }
+    
+    // Draw active boss and boss health bar if active
+    if (state.bossActive && state.boss) {
+        const boss = state.boss;
+        ctx.save();
+        
+        // 1. Draw Boss Core (Fortress node)
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#ff0055';
+        ctx.fillStyle = '#110a15'; // dark core body
+        ctx.strokeStyle = '#ff0055'; // glowing red outline
+        ctx.lineWidth = 3;
+        
+        ctx.beginPath();
+        ctx.moveTo(boss.x, boss.y + 15);
+        ctx.lineTo(boss.x + 30, boss.y);
+        ctx.lineTo(boss.x + boss.width - 30, boss.y);
+        ctx.lineTo(boss.x + boss.width, boss.y + 15);
+        ctx.lineTo(boss.x + boss.width - 15, boss.y + boss.height);
+        ctx.lineTo(boss.x + 15, boss.y + boss.height);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        // Tech details inside boss core
+        ctx.strokeStyle = 'rgba(255, 0, 85, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(boss.x + 20, boss.y + boss.height/2);
+        ctx.lineTo(boss.x + boss.width - 20, boss.y + boss.height/2);
+        ctx.stroke();
+        
+        // Pulsing power core
+        const pulse = 1.0 + Math.sin(Date.now() / 100) * 0.2;
+        ctx.fillStyle = '#ff0055';
+        ctx.shadowColor = '#ff0055';
+        ctx.beginPath();
+        ctx.arc(boss.x + boss.width / 2, boss.y + boss.height / 2, 10 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 2. Draw Shield Halo if active
+        if (boss.shieldHp > 0) {
+            ctx.strokeStyle = '#00ffff';
+            ctx.shadowColor = '#00ffff';
+            ctx.lineWidth = 2.5;
+            ctx.setLineDash([8, 12]);
+            ctx.beginPath();
+            ctx.arc(boss.x + boss.width / 2, boss.y + boss.height / 2, boss.width / 2 + 10, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        
+        // 3. Draw Boss Health Bar at top center
+        const barW = 300;
+        const barH = 10;
+        const barX = CANVAS_WIDTH / 2 - barW / 2;
+        const barY = 20;
+        
+        // BG bar
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.lineWidth = 1;
+        ctx.fillRect(barX, barY, barW, barH);
+        ctx.strokeRect(barX, barY, barW, barH);
+        
+        // HP Fill
+        const hpPct = Math.max(0, boss.hp / boss.maxHp);
+        ctx.fillStyle = '#ff0055';
+        ctx.shadowColor = '#ff0055';
+        ctx.shadowBlur = 10;
+        ctx.fillRect(barX + 2, barY + 2, (barW - 4) * hpPct, barH - 4);
+        
+        // Text
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '9px "Orbitron"';
+        ctx.textAlign = 'center';
+        ctx.fillText(`SECURE_GATEWAY_INTEGRITY // 防火墙安全度 ${Math.round(hpPct * 100)}%`, CANVAS_WIDTH / 2, barY - 6);
+        
+        // 4. Draw Boss Bullets
+        boss.bullets.forEach(bullet => {
+            ctx.save();
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = bullet.color;
+            ctx.fillStyle = bullet.color;
+            ctx.beginPath();
+            ctx.moveTo(bullet.x, bullet.y - bullet.radius);
+            ctx.lineTo(bullet.x + bullet.radius, bullet.y + bullet.radius);
+            ctx.lineTo(bullet.x - bullet.radius, bullet.y + bullet.radius);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        });
+        
         ctx.restore();
     }
     
