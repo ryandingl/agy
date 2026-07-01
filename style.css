@@ -433,10 +433,57 @@ h1.glitch::after {
 }
 
 .high-score-display {
-    font-size: 14px;
+    font-size: 12px;
     letter-spacing: 2px;
-    margin-top: 15px;
+    margin-top: 10px;
     color: #4a5468;
+    text-align: center;
+}
+
+.leaderboard-display {
+    width: 300px;
+    margin-top: 20px;
+    border: 1px dashed rgba(255, 183, 0, 0.3);
+    padding: 10px 15px;
+    background: rgba(9, 10, 21, 0.6);
+    border-radius: 4px;
+    box-shadow: 0 0 10px rgba(255, 183, 0, 0.05);
+}
+
+.leaderboard-title {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--neon-yellow);
+    text-shadow: var(--shadow-yellow);
+    text-align: center;
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+
+#leaderboard-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+}
+
+#leaderboard-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color: #a0aec0;
+}
+
+#leaderboard-list li:last-child {
+    border-bottom: none;
+}
+
+#leaderboard-list li .score-num {
+    color: var(--neon-yellow);
+    text-shadow: var(--shadow-yellow);
+    font-weight: bold;
 }
 
 .stats-summary {

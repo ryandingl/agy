@@ -1573,12 +1573,12 @@ function updateHUD() {
     const activeBall = balls[0];
     const speedText = activeBall ? Math.hypot(activeBall.vx, activeBall.vy).toFixed(1) : '0';
     document.getElementById('diag-speed').innerText = activeBall ? `${speedText} px/f` : 'N/A';
-    document.getElementById('diag-shield').innerText = activeMods['SHIELD'] ? 'ACTIVE (100%)' : 'INACTIVE';
+    document.getElementById('diag-shield').innerText = activeMods['SHIELD'] ? 'NET_SHIELD' : (activeMods['MIRROR_WALL'] > 0 ? 'MIRROR_WALL' : 'INACTIVE');
     document.getElementById('diag-laser').innerText = activeMods['LASER'] ? `${Math.ceil(activeMods['LASER'] / 10)}%` : '0%';
     
-    // Update core temp slightly dynamically based on score & active entities
+    // Update core temp slightly dynamically based on score & active entities (boost when boss is active)
     const particlesLoad = particles.length;
-    const calcTemp = 37 + (state.multiplier * 3) + (particlesLoad * 0.1);
+    const calcTemp = 37 + (state.multiplier * 3) + (particlesLoad * 0.1) + (state.bossActive ? 25 : 0);
     const tempNode = document.getElementById('diag-temp');
     tempNode.innerText = `${calcTemp.toFixed(1)}°C`;
     if (calcTemp > 50) {
@@ -2911,6 +2911,10 @@ function gameOver() {
     document.getElementById('final-level').innerText = state.level;
     document.getElementById('game-over-overlay').classList.remove('hidden');
     addLogLine("CRITICAL_ERR: CONNECTION TERMINATED. LINK LOST.");
+    
+    setTimeout(() => {
+        checkAndAddLeaderboard(finalScoreInt);
+    }, 500);
 }
 
 function handleLevelComplete() {
@@ -3438,6 +3442,10 @@ function gameVictory() {
     document.getElementById('victory-score').innerText = finalScoreInt;
     document.getElementById('victory-overlay').classList.remove('hidden');
     addLogLine("SYS_SUCCESS: DATA EXTRACTED. CORP DEFEATED.");
+    
+    setTimeout(() => {
+        checkAndAddLeaderboard(finalScoreInt);
+    }, 500);
 }
 
 function startGame(chosenMode = 'STORY') {
@@ -3846,6 +3854,85 @@ function setupInputListeners() {
     });
 }
 
+// Leaderboard default data & helpers
+const DEFAULT_LEADERBOARD = [
+    { name: "CORP_SEC", score: 50000 },
+    { name: "NET_RUNNER", score: 30000 },
+    { name: "GLITCH_KID", score: 15000 },
+    { name: "NEO_GUEST", score: 8000 },
+    { name: "CYBER_PUNK", score: 3000 }
+];
+
+function loadLeaderboard() {
+    let board = [];
+    try {
+        const cached = localStorage.getItem('cyberbreak_leaderboard');
+        if (cached) {
+            board = JSON.parse(cached);
+        } else {
+            board = DEFAULT_LEADERBOARD;
+            localStorage.setItem('cyberbreak_leaderboard', JSON.stringify(board));
+        }
+    } catch (e) {
+        board = DEFAULT_LEADERBOARD;
+    }
+    
+    // Sort just in case
+    board.sort((a, b) => b.score - a.score);
+    
+    // Render to list in menu
+    const list = document.getElementById('leaderboard-list');
+    if (list) {
+        list.innerHTML = '';
+        board.forEach((entry, idx) => {
+            const li = document.createElement('li');
+            const rank = String(idx + 1).padStart(2, '0');
+            li.innerHTML = `
+                <span>${rank}. ${entry.name}</span>
+                <span class="score-num">${String(Math.floor(entry.score)).padStart(6, '0')}</span>
+            `;
+            list.appendChild(li);
+        });
+    }
+}
+
+function checkAndAddLeaderboard(scoreVal) {
+    let board = [];
+    try {
+        const cached = localStorage.getItem('cyberbreak_leaderboard');
+        if (cached) {
+            board = JSON.parse(cached);
+        } else {
+            board = DEFAULT_LEADERBOARD;
+        }
+    } catch (e) {
+        board = DEFAULT_LEADERBOARD;
+    }
+    
+    board.sort((a, b) => b.score - a.score);
+    const scoreInt = Math.floor(scoreVal);
+    
+    // Check if score qualifies
+    const qualifies = board.length < 5 || scoreInt > board[board.length - 1].score;
+    
+    if (qualifies) {
+        let rawName = prompt("ENTER NEURAL DECK SIGNATURE // 输入网络签名 (3个英文字符):", "RUN");
+        if (rawName === null) return; // User cancelled
+        
+        let cleanName = rawName.trim().toUpperCase().slice(0, 8);
+        if (!cleanName) cleanName = "PLAYER";
+        
+        board.push({ name: cleanName, score: scoreInt });
+        board.sort((a, b) => b.score - a.score);
+        
+        // Keep top 5
+        board = board.slice(0, 5);
+        localStorage.setItem('cyberbreak_leaderboard', JSON.stringify(board));
+        loadLeaderboard();
+        addLogLine("Leaderboard record synced: " + cleanName + " - " + scoreInt);
+    }
+}
+
 // Load cached high score
 function loadHighScore() {
     const cached = localStorage.getItem('cyberbreak_highscore');
@@ -3853,6 +3940,7 @@ function loadHighScore() {
         state.highScore = parseInt(cached);
         document.getElementById('high-score-val').innerText = String(state.highScore).padStart(6, '0');
     }
+    loadLeaderboard();
 }
 
 // Load persistent score/credits
