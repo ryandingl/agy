@@ -1130,6 +1130,7 @@ let balls = [];
 let bricks = [];
 let powerups = [];
 let particles = [];
+let shockwaves = [];
 let lasers = [];
 
 // Audio context & music nodes
@@ -1723,6 +1724,36 @@ function spawnParticles(x, y, color, count = 10) {
     }
 }
 
+function spawnShockwave(x, y, color) {
+    shockwaves.push({
+        x: x,
+        y: y,
+        color: color,
+        radius: 5,
+        maxRadius: 80 + Math.random() * 40,
+        lineWidth: 3,
+        life: 0,
+        maxLife: 25,
+        update() {
+            this.radius += (this.maxRadius - this.radius) * 0.12;
+            this.lineWidth = 3 * (1 - this.life / this.maxLife);
+            this.life++;
+        },
+        draw() {
+            ctx.save();
+            ctx.strokeStyle = this.color;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = this.color;
+            ctx.lineWidth = this.lineWidth;
+            ctx.globalAlpha = 1 - (this.life / this.maxLife);
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+    });
+}
+
 // Create random symmetric grid layout for Endless mode
 function createRandomSymmetricLayout(rows, cols) {
     const layout = [];
@@ -1831,6 +1862,7 @@ function generateBricks() {
                     state.score += 5.0 * state.multiplier;
                     state.multiplier += 0.15;
                     spawnParticles(this.x + this.width/2, this.y + this.height/2, this.color, 12);
+                    spawnShockwave(this.x + this.width/2, this.y + this.height/2, this.color);
                     if (this.type === 6) {
                         playSound('hit_red');
                         triggerScreenShake(12);
@@ -1984,6 +2016,7 @@ function generateBricks() {
                     
                     // Explosion particles matching color
                     spawnParticles(this.x + this.width / 2, this.y + this.height / 2, this.color, 12);
+                    spawnShockwave(this.x + this.width / 2, this.y + this.height / 2, this.color);
                     
                     // Trigger sound
                     if (this.type === 4) {
@@ -2533,6 +2566,7 @@ function updatePhysics() {
                 
                 playSound('bounce');
                 triggerScreenShake(3);
+                spawnShockwave(b.x, paddle.y, '#00ffff');
                 
                 // Break combo multiplier slightly or keep it rolling
                 const isSynthWave = (state.skins && state.skins.theme && state.skins.theme.active === 1);
@@ -2551,6 +2585,7 @@ function updatePhysics() {
                 state.diagnostics.shieldActive = false;
                 playSound('bounce');
                 triggerScreenShake(12);
+                spawnShockwave(b.x, CANVAS_HEIGHT - 12, '#05ff50');
                 addLogLine("SHIELD ABSORPTION TRIGGERED. MOD DEPLETED.");
                 renderPowerupListHUD();
             } else {
@@ -2747,7 +2782,14 @@ function updatePhysics() {
         }
     }
     
-    // Check Level Complete Victory Conditions
+    // 7a. Shockwaves
+    for (let i = shockwaves.length - 1; i >= 0; i--) {
+        const sw = shockwaves[i];
+        sw.update();
+        if (sw.life >= sw.maxLife) {
+            shockwaves.splice(i, 1);
+        }
+    }
     const remainingBricks = bricks.filter(b => b.hp > 0 && b.type !== 5);
     if (remainingBricks.length === 0) {
         handleLevelComplete();
@@ -3582,6 +3624,9 @@ function draw() {
         
         ctx.restore();
     }
+    
+    // Draw shockwaves
+    shockwaves.forEach(sw => sw.draw());
     
     // Draw particles
     particles.forEach(p => p.draw());
