@@ -1135,7 +1135,7 @@ let lasers = [];
 
 // Audio context & music nodes
 let audioCtx = null;
-let musicInterval = null;
+let musicTimeout = null;
 let musicStep = 0;
 let masterGain = null;
 
@@ -1224,13 +1224,10 @@ function initAudio() {
 }
 
 // Procedural background retro-synthwave bass loop
+// Procedural background retro-synthwave bass & drum loop with tempo modulation
 function startBgMusic() {
-    if (musicInterval) clearInterval(musicInterval);
+    if (musicTimeout) clearTimeout(musicTimeout);
     
-    const bpm = 115;
-    const interval = (60 / bpm) / 2 * 1000; // Eighth notes
-    
-    // Bass notes sequence (Hz values for E1, G1, A1, B1, D2 etc.)
     const bassline = [
         82.41, 82.41, 82.41, 98.00,  // E2, E2, E2, G2
         110.00, 110.00, 98.00, 73.42, // A2, A2, G2, D2
@@ -1238,43 +1235,123 @@ function startBgMusic() {
         110.00, 98.00, 73.42, 65.41   // A2, G2, D2, C2
     ];
 
-    musicInterval = setInterval(() => {
-        if (!audioCtx || state.mode === 'MENU' || !state.audioEnabled) return;
+    function playStep() {
+        if (!audioCtx) return;
         
-        const now = audioCtx.currentTime;
-        const freq = bassline[musicStep % bassline.length];
+        // Determine tempo (BPM) and pitch shift based on game state
+        let currentBpm = 115;
+        let pitchMultiplier = 1.0;
         
-        // Base synth wave (sawtooth for cyber grit)
-        const osc = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-        
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(freq, now);
-        
-        // Apply low pass filter for that classic dark retro vibe
-        const filter = audioCtx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(300, now);
-        filter.Q.setValueAtTime(4, now);
-        
-        // Subtle envelope
-        gainNode.gain.setValueAtTime(0.08, now);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-        
-        osc.connect(filter);
-        filter.connect(gainNode);
-        gainNode.connect(masterGain);
-        
-        osc.start(now);
-        osc.stop(now + 0.4);
-
-        // Hi-hat simulation on even beats
-        if (musicStep % 2 === 0) {
-            playSynthHat(now);
+        if (state.mode === 'PLAYING') {
+            if (state.lives === 1) {
+                currentBpm = 145; // Panic speed!
+                pitchMultiplier = 1.25; // Shift pitch higher
+            } else if (state.multiplier >= 4.0) {
+                currentBpm = 132; // High adrenaline score speed
+                pitchMultiplier = 1.15;
+            }
         }
         
-        musicStep++;
-    }, interval);
+        const stepDuration = (60 / currentBpm) / 2; // eighth notes (in seconds)
+        
+        if (state.mode !== 'MENU' && state.audioEnabled) {
+            const now = audioCtx.currentTime;
+            const baseFreq = bassline[musicStep % bassline.length];
+            const freq = baseFreq * pitchMultiplier;
+            
+            // 1. Synthesize Bass Synth
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(freq, now);
+            
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            // Open filter cut-off slightly when music speeds up
+            const cutOff = (state.lives === 1 || state.multiplier >= 4) ? 450 : 300;
+            filter.frequency.setValueAtTime(cutOff, now);
+            filter.Q.setValueAtTime(4, now);
+            
+            gainNode.gain.setValueAtTime(0.08, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + stepDuration * 0.95);
+            
+            osc.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(masterGain);
+            
+            osc.start(now);
+            osc.stop(now + stepDuration);
+            
+            // 2. Synthesize Drum beat (4/4 Kick and Snare)
+            const beatStep = musicStep % 8;
+            if (beatStep === 0 || beatStep === 4) {
+                triggerKickSynth(now);
+            } else if (beatStep === 2 || beatStep === 6) {
+                triggerSnareSynth(now);
+            }
+            
+            // 3. Hi-hat on offbeats or alternate beats
+            if (musicStep % 2 === 0) {
+                playSynthHat(now);
+            }
+            
+            musicStep++;
+        }
+        
+        musicTimeout = setTimeout(playStep, stepDuration * 1000);
+    }
+    
+    playStep();
+}
+
+function triggerKickSynth(time) {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    
+    osc.connect(gainNode);
+    gainNode.connect(masterGain);
+    
+    osc.frequency.setValueAtTime(150, time);
+    osc.frequency.exponentialRampToValueAtTime(40, time + 0.12);
+    
+    gainNode.gain.setValueAtTime(0.35, time);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
+    
+    osc.start(time);
+    osc.stop(time + 0.12);
+}
+
+function triggerSnareSynth(time) {
+    if (!audioCtx) return;
+    
+    // Snare noise generator
+    const bufferSize = audioCtx.sampleRate * 0.10;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+    }
+    
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+    
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1000, time);
+    filter.Q.setValueAtTime(2, time);
+    
+    const gainNode = audioCtx.createGain();
+    gainNode.gain.setValueAtTime(0.20, time);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, time + 0.10);
+    
+    noise.connect(filter);
+    filter.connect(gainNode);
+    gainNode.connect(masterGain);
+    
+    noise.start(time);
+    noise.stop(time + 0.10);
 }
 
 function playSynthHat(time) {
