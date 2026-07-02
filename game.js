@@ -12,6 +12,7 @@
 // --- CONFIGURATION & STATES ---
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
+const FIXED_BALL_SPEED = 8.5;
 
 // Game State Object
 const state = {
@@ -1644,6 +1645,7 @@ function triggerScreenShake(amount) {
 
 // Update DOM elements for stats
 function updateHUD() {
+    state.multiplier = Math.min(9.9, state.multiplier);
     document.getElementById('score-val').innerText = String(Math.floor(state.score)).padStart(6, '0');
     document.getElementById('mult-val').innerText = `x${state.multiplier.toFixed(1)}`;
     document.getElementById('level-val').innerText = String(state.level).padStart(2, '0');
@@ -1762,9 +1764,9 @@ function resetBalls() {
 function spawnBall(x, y, attachToPaddle = false) {
     if (balls.length >= 10) return;
     const angle = (Math.random() * 60 - 30) * Math.PI / 180; // random tilt
-    let speed = 6;
+    let speed = FIXED_BALL_SPEED;
     if (activeMods['SLOW'] > 0) {
-        speed *= 0.6;
+        speed = FIXED_BALL_SPEED * 0.6;
     }
     balls.push({
         x: x,
@@ -1830,6 +1832,17 @@ function spawnBall(x, y, attachToPaddle = false) {
                     playSound('bounce');
                     triggerScreenShake(4);
                 }
+            }
+            
+            // Normalize speed to fixed speed (or slow speed during Time Dilation)
+            let targetSpeed = FIXED_BALL_SPEED;
+            if (activeMods['SLOW'] > 0) {
+                targetSpeed = FIXED_BALL_SPEED * 0.6;
+            }
+            const currentSpeed = Math.hypot(this.vx, this.vy);
+            if (currentSpeed > 0) {
+                this.vx = (this.vx / currentSpeed) * targetSpeed;
+                this.vy = (this.vy / currentSpeed) * targetSpeed;
             }
         },
         draw(c = ctx) {
@@ -2680,6 +2693,8 @@ function updatePhysics() {
         state.flashVignette.alpha -= 0.025;
     }
     
+    state.multiplier = Math.min(9.9, state.multiplier);
+    
     // Update moving special bricks
     updateSpecialBricks();
     
@@ -2752,12 +2767,14 @@ function updatePhysics() {
                 const maxAngle = 65 * Math.PI / 180;
                 const newAngle = normalizedHit * maxAngle;
                 
-                // Keep same or slightly speed up ball speed
-                const currentSpeed = Math.hypot(b.vx, b.vy);
-                const newSpeed = Math.min(12, currentSpeed * 1.02); // slight accel
+                // Set bounce speed to fixed speed (or slow speed during Time Dilation)
+                let speed = FIXED_BALL_SPEED;
+                if (activeMods['SLOW'] > 0) {
+                    speed = FIXED_BALL_SPEED * 0.6;
+                }
                 
-                b.vx = newSpeed * Math.sin(newAngle);
-                b.vy = -newSpeed * Math.cos(newAngle);
+                b.vx = speed * Math.sin(newAngle);
+                b.vy = -speed * Math.cos(newAngle);
                 
                 playSound('bounce');
                 triggerScreenShake(3);
