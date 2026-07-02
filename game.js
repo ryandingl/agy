@@ -31,6 +31,8 @@ const state = {
     },
     screenShake: 0,
     flashVignette: { color: '#ff0055', alpha: 0 },
+    glitchedInLevel: false,
+    consecutiveLevelsNoDeath: 0,
     inputMode: 'keyboard',
     currentShopTab: 'upgrades',
     currentSkinCategory: 'paddle',
@@ -1646,6 +1648,10 @@ function updateHUD() {
     document.getElementById('mult-val').innerText = `x${state.multiplier.toFixed(1)}`;
     document.getElementById('level-val').innerText = String(state.level).padStart(2, '0');
     
+    if (state.multiplier >= 5.0) {
+        unlockAchievement('NEURAL_OVERDRIVE');
+    }
+    
     // Toggle Save & Exit panel visibility based on active gameplay state
     const saveExitBox = document.getElementById('save-exit-box');
     if (saveExitBox) {
@@ -2658,6 +2664,7 @@ function updateBoss() {
             state.multiplier = Math.max(1.0, state.multiplier - 0.5);
             playSound('lost');
             triggerScreenShake(12);
+            state.glitchedInLevel = true;
             triggerGlitchAlert("SYSTEM CORRUPTED // 挡板线宽系统被篡改");
             
             boss.bullets.splice(i, 1);
@@ -2836,6 +2843,7 @@ function updatePhysics() {
                         spawnParticles(boss.x + boss.width/2, boss.y + boss.height/2, '#00ffff', 40);
                         state.bossActive = false;
                         state.boss = null;
+                        unlockAchievement('GATEWAY_CRASHER');
                         handleLevelComplete();
                     }
                 }
@@ -2930,6 +2938,7 @@ function updatePhysics() {
                         spawnParticles(boss.x + boss.width/2, boss.y + boss.height/2, '#00ffff', 40);
                         state.bossActive = false;
                         state.boss = null;
+                        unlockAchievement('GATEWAY_CRASHER');
                         handleLevelComplete();
                     }
                 }
@@ -2988,6 +2997,7 @@ function updatePhysics() {
 
 function handleLifeLost() {
     state.lives--;
+    state.consecutiveLevelsNoDeath = 0;
     playSound('lost');
     triggerScreenShake(15);
     state.flashVignette = { color: '#ff0055', alpha: 0.65 };
@@ -3031,6 +3041,17 @@ function gameOver() {
 }
 
 function handleLevelComplete() {
+    // Check level achievements
+    if (state.glitchedInLevel) {
+        unlockAchievement('GLITCH_SURVIVOR');
+    }
+    state.glitchedInLevel = false;
+    
+    state.consecutiveLevelsNoDeath++;
+    if (state.consecutiveLevelsNoDeath >= 3) {
+        unlockAchievement('IMMORTAL_RUNNER');
+    }
+
     // Stage Clear Bonus
     let stageClearBonus = 50 * state.level * state.multiplier;
     const isMatrixRain = (state.skins && state.skins.theme && state.skins.theme.active === 2);
@@ -3166,9 +3187,11 @@ function openShop(origin = 'GAME') {
     state.currentShopTab = 'upgrades';
     const tabUpgrades = document.getElementById('shop-tab-upgrades');
     const tabSkins = document.getElementById('shop-tab-skins');
+    const tabAch = document.getElementById('shop-tab-achievements');
     const skinCats = document.getElementById('skin-cats');
     if (tabUpgrades) tabUpgrades.classList.add('active');
     if (tabSkins) tabSkins.classList.remove('active');
+    if (tabAch) tabAch.classList.remove('active');
     if (skinCats) skinCats.classList.add('hidden');
     
     // Update credits display
@@ -3240,6 +3263,7 @@ function renderShopItems() {
                     
                     state.score -= item.price;
                     item.buy();
+                    unlockAchievement('BLACK_MARKET_PATRON');
                     playSound('powerup');
                     
                     // Save credits immediately after purchase
@@ -3262,7 +3286,7 @@ function renderShopItems() {
             card.appendChild(buyBtn);
             container.appendChild(card);
         });
-    } else {
+    } else if (state.currentShopTab === 'skins') {
         const category = state.currentSkinCategory;
         const skins = SKINS_CONFIG[category];
         
@@ -3338,6 +3362,7 @@ function renderShopItems() {
                         state.score -= skin.price;
                         state.skins[category].owned[index] = true;
                         state.skins[category].active = index;
+                        unlockAchievement('BLACK_MARKET_PATRON');
                         playSound('powerup');
                         saveCredits();
                         
@@ -3369,6 +3394,8 @@ function renderShopItems() {
             // Draw visual preview on the canvas
             drawSkinPreview(canvas, category, skin, index);
         });
+    } else if (state.currentShopTab === 'achievements') {
+        renderAchievementsList(container);
     }
 }
 
@@ -3377,17 +3404,22 @@ function switchShopTab(tab) {
     
     const tabUpgrades = document.getElementById('shop-tab-upgrades');
     const tabSkins = document.getElementById('shop-tab-skins');
+    const tabAch = document.getElementById('shop-tab-achievements');
     const skinCats = document.getElementById('skin-cats');
+    
+    if (tabUpgrades) tabUpgrades.classList.remove('active');
+    if (tabSkins) tabSkins.classList.remove('active');
+    if (tabAch) tabAch.classList.remove('active');
+    if (skinCats) skinCats.classList.add('hidden');
     
     if (tab === 'upgrades') {
         if (tabUpgrades) tabUpgrades.classList.add('active');
-        if (tabSkins) tabSkins.classList.remove('active');
-        if (skinCats) skinCats.classList.add('hidden');
-    } else {
-        if (tabUpgrades) tabUpgrades.classList.remove('active');
+    } else if (tab === 'skins') {
         if (tabSkins) tabSkins.classList.add('active');
         if (skinCats) skinCats.classList.remove('hidden');
         switchSkinCategory(state.currentSkinCategory || 'paddle');
+    } else if (tab === 'achievements') {
+        if (tabAch) tabAch.classList.add('active');
     }
     
     renderShopItems();
@@ -3567,6 +3599,8 @@ function startGame(chosenMode = 'STORY') {
     initAudio();
     state.gameMode = chosenMode;
     state.mode = 'PLAYING';
+    state.consecutiveLevelsNoDeath = 0;
+    state.glitchedInLevel = false;
     
     // Close overlay UI
     document.getElementById('menu-overlay').classList.add('hidden');
@@ -3999,6 +4033,8 @@ function setupInputListeners() {
     // Wire up shop tabs
     document.getElementById('shop-tab-upgrades').addEventListener('click', () => switchShopTab('upgrades'));
     document.getElementById('shop-tab-skins').addEventListener('click', () => switchShopTab('skins'));
+    const tabAch = document.getElementById('shop-tab-achievements');
+    if (tabAch) tabAch.addEventListener('click', () => switchShopTab('achievements'));
     document.getElementById('skin-cat-paddle').addEventListener('click', () => switchSkinCategory('paddle'));
     document.getElementById('skin-cat-ball').addEventListener('click', () => switchSkinCategory('ball'));
     document.getElementById('skin-cat-brick').addEventListener('click', () => switchSkinCategory('brick'));
@@ -4016,6 +4052,118 @@ function setupInputListeners() {
         if (state.audioEnabled && !audioCtx) {
             initAudio();
         }
+    });
+}
+
+// Achievements System Configurations & Helpers
+const ACHIEVEMENTS_CONFIG = [
+    {
+        id: 'NEURAL_OVERDRIVE',
+        name: 'NEURAL_OVERDRIVE // 神经超载',
+        desc: 'Reach a score multiplier of x5.0 or higher in any run.',
+        color: '#ff0055'
+    },
+    {
+        id: 'GATEWAY_CRASHER',
+        name: 'GATEWAY_CRASHER // 网关粉碎者',
+        desc: 'Defeat the 企业/Enterprise Firewall Boss Core in story or endless mode.',
+        color: '#00ffff'
+    },
+    {
+        id: 'BLACK_MARKET_PATRON',
+        name: 'BLACK_MARKET_PATRON // 黑市顾客',
+        desc: 'Purchase any upgrade or skin from the Cyber Mart shop.',
+        color: '#ffb700'
+    },
+    {
+        id: 'GLITCH_SURVIVOR',
+        name: 'GLITCH_SURVIVOR // 故障幸存者',
+        desc: 'Clear a level after recovering from a boss shrink-virus glitch.',
+        color: '#05ff50'
+    },
+    {
+        id: 'IMMORTAL_RUNNER',
+        name: 'IMMORTAL_RUNNER // 永生跑者',
+        desc: 'Pass 3 consecutive levels without losing any neural packets (lives).',
+        color: '#b700ff'
+    }
+];
+
+function initAchievements() {
+    if (!localStorage.getItem('cyberbreak_achievements')) {
+        const initial = {
+            NEURAL_OVERDRIVE: false,
+            GATEWAY_CRASHER: false,
+            BLACK_MARKET_PATRON: false,
+            GLITCH_SURVIVOR: false,
+            IMMORTAL_RUNNER: false
+        };
+        localStorage.setItem('cyberbreak_achievements', JSON.stringify(initial));
+    }
+}
+
+function unlockAchievement(id) {
+    try {
+        initAchievements();
+        const data = JSON.parse(localStorage.getItem('cyberbreak_achievements')) || {};
+        if (data[id] === false) {
+            data[id] = true;
+            localStorage.setItem('cyberbreak_achievements', JSON.stringify(data));
+            
+            triggerGlitchAlert(`ACHIEVEMENT_UNLOCKED // 解锁成就: ${id}`);
+            playSound('powerup');
+            addLogLine(`SYS_SUCCESS: ACHIEVEMENT UNLOCKED -> [${id}]`);
+        }
+    } catch (e) {
+        console.error("Failed to unlock achievement", e);
+    }
+}
+
+function isAchievementUnlocked(id) {
+    try {
+        initAchievements();
+        const data = JSON.parse(localStorage.getItem('cyberbreak_achievements')) || {};
+        return !!data[id];
+    } catch (e) {
+        return false;
+    }
+}
+
+function renderAchievementsList(container) {
+    ACHIEVEMENTS_CONFIG.forEach(ach => {
+        const card = document.createElement('div');
+        card.className = 'shop-item-card achievement-card';
+        
+        const unlocked = isAchievementUnlocked(ach.id);
+        if (unlocked) {
+            card.classList.add('unlocked-achievement');
+        } else {
+            card.classList.add('locked-achievement');
+        }
+        
+        const title = document.createElement('div');
+        title.className = 'shop-item-title';
+        title.style.color = unlocked ? ach.color : '#4a5468';
+        title.innerText = ach.name;
+        
+        const desc = document.createElement('div');
+        desc.className = 'shop-item-desc';
+        desc.innerText = ach.desc;
+        
+        const statusBadge = document.createElement('div');
+        statusBadge.className = 'achievement-status';
+        if (unlocked) {
+            statusBadge.innerHTML = `<span class="neon-green">UNLOCKED // 已解锁</span>`;
+            card.style.borderColor = ach.color;
+            card.style.boxShadow = `0 0 10px ${ach.color}33`;
+        } else {
+            statusBadge.innerHTML = `<span class="neon-magenta">LOCKED // 未解锁</span>`;
+        }
+        
+        card.appendChild(title);
+        card.appendChild(desc);
+        card.appendChild(statusBadge);
+        container.appendChild(card);
     });
 }
 

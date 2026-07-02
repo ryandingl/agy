@@ -486,6 +486,36 @@ h1.glitch::after {
     font-weight: bold;
 }
 
+/* Achievements Styling */
+.achievement-card {
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(13, 14, 28, 0.5) !important;
+    padding: 15px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.achievement-card.locked-achievement {
+    opacity: 0.5;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.achievement-card.unlocked-achievement {
+    opacity: 1;
+}
+
+.achievement-status {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px;
+    letter-spacing: 1px;
+    margin-top: 8px;
+    font-weight: bold;
+}
+
 .stats-summary {
     text-align: center;
     font-size: 18px;
