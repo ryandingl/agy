@@ -4060,31 +4060,31 @@ const ACHIEVEMENTS_CONFIG = [
     {
         id: 'NEURAL_OVERDRIVE',
         name: 'NEURAL_OVERDRIVE // 神经超载',
-        desc: 'Reach a score multiplier of x5.0 or higher in any run.',
+        desc: '在任意单局中使分数乘数达到 x5.0 或更高。',
         color: '#ff0055'
     },
     {
         id: 'GATEWAY_CRASHER',
         name: 'GATEWAY_CRASHER // 网关粉碎者',
-        desc: 'Defeat the 企业/Enterprise Firewall Boss Core in story or endless mode.',
+        desc: '在故事或无尽模式中成功击毁企业安全防火墙 Boss 核心。',
         color: '#00ffff'
     },
     {
         id: 'BLACK_MARKET_PATRON',
         name: 'BLACK_MARKET_PATRON // 黑市顾客',
-        desc: 'Purchase any upgrade or skin from the Cyber Mart shop.',
+        desc: '在黑市商店中购买任意道具升级或外观皮肤。',
         color: '#ffb700'
     },
     {
         id: 'GLITCH_SURVIVOR',
         name: 'GLITCH_SURVIVOR // 故障幸存者',
-        desc: 'Clear a level after recovering from a boss shrink-virus glitch.',
+        desc: '在被 Boss 的缩短病毒感染后顺利通关该层防火墙。',
         color: '#05ff50'
     },
     {
         id: 'IMMORTAL_RUNNER',
         name: 'IMMORTAL_RUNNER // 永生跑者',
-        desc: 'Pass 3 consecutive levels without losing any neural packets (lives).',
+        desc: '在不损失任何生命值的情况下，连续通过 3 个关卡。',
         color: '#b700ff'
     }
 ];
@@ -4110,9 +4110,11 @@ function unlockAchievement(id) {
             data[id] = true;
             localStorage.setItem('cyberbreak_achievements', JSON.stringify(data));
             
-            triggerGlitchAlert(`ACHIEVEMENT_UNLOCKED // 解锁成就: ${id}`);
+            const ach = ACHIEVEMENTS_CONFIG.find(a => a.id === id);
+            const achName = ach ? ach.name.split(' // ')[1] : id;
+            triggerGlitchAlert(`ACHIEVEMENT_UNLOCKED // 获得系统成就: [${achName}]`);
             playSound('powerup');
-            addLogLine(`SYS_SUCCESS: ACHIEVEMENT UNLOCKED -> [${id}]`);
+            addLogLine(`SYS_SUCCESS: ACHIEVEMENT UNLOCKED -> [${achName}]`);
         }
     } catch (e) {
         console.error("Failed to unlock achievement", e);
