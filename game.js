@@ -30,6 +30,7 @@ const state = {
         coreTemp: 37,
     },
     screenShake: 0,
+    flashVignette: { color: '#ff0055', alpha: 0 },
     inputMode: 'keyboard',
     currentShopTab: 'upgrades',
     currentSkinCategory: 'paddle',
@@ -1864,14 +1865,14 @@ function spawnBall(x, y, attachToPaddle = false) {
 
 function spawnParticles(x, y, color, count = 10) {
     for (let i = 0; i < count; i++) {
-        const speed = Math.random() * 5 + 1;
+        const speed = Math.random() * 6 + 1.5;
         const angle = Math.random() * Math.PI * 2;
         particles.push({
             x: x,
             y: y,
             vx: speed * Math.cos(angle),
             vy: speed * Math.sin(angle),
-            size: Math.random() * 4 + 1.5,
+            size: Math.random() * 2 + 1.5,
             color: color,
             alpha: 1,
             life: 1,
@@ -1879,18 +1880,23 @@ function spawnParticles(x, y, color, count = 10) {
             update() {
                 this.x += this.vx;
                 this.y += this.vy;
-                this.vx *= 0.95; // Friction
-                this.vy *= 0.95;
+                this.vx *= 0.94; // friction
+                this.vy *= 0.94;
                 this.life++;
                 this.alpha = 1 - (this.life / this.maxLife);
             },
             draw() {
                 ctx.save();
                 ctx.globalAlpha = this.alpha;
-                ctx.fillStyle = this.color;
-                ctx.shadowBlur = 5;
+                ctx.strokeStyle = this.color;
+                ctx.shadowBlur = 8;
                 ctx.shadowColor = this.color;
-                ctx.fillRect(this.x - this.size/2, this.y - this.size/2, this.size, this.size);
+                ctx.lineWidth = this.size;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(this.x - this.vx * 1.5, this.y - this.vy * 1.5);
+                ctx.stroke();
                 ctx.restore();
             }
         });
@@ -1984,6 +1990,7 @@ function generateBricks() {
     
     if (state.level % 5 === 0) {
         state.bossActive = true;
+        state.flashVignette = { color: '#ff5500', alpha: 0.75 };
         state.boss = {
             x: CANVAS_WIDTH / 2 - 80,
             y: 80,
@@ -2330,33 +2337,36 @@ function detonateExplosiveVolatile(sourceBrick) {
     const centerY = sourceBrick.y + sourceBrick.height/2;
     
     // Create extra glowing particles ring
-    for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
-        const speed = 4 + Math.random() * 2;
+    for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 12) {
+        const speed = 5 + Math.random() * 3;
         particles.push({
             x: centerX,
             y: centerY,
             vx: speed * Math.cos(angle),
             vy: speed * Math.sin(angle),
-            radius: 3,
+            size: Math.random() * 2 + 2,
             color: '#ff6a00',
             life: 0,
             maxLife: 40 + Math.random() * 20,
             draw() {
                 ctx.save();
                 ctx.globalAlpha = 1 - (this.life / this.maxLife);
-                ctx.shadowBlur = 10;
+                ctx.shadowBlur = 12;
                 ctx.shadowColor = this.color;
-                ctx.fillStyle = this.color;
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = this.size;
+                ctx.lineCap = 'round';
                 ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(this.x - this.vx * 1.8, this.y - this.vy * 1.8);
+                ctx.stroke();
                 ctx.restore();
             },
             update() {
                 this.x += this.vx;
                 this.y += this.vy;
-                this.vx *= 0.95; // friction
-                this.vy *= 0.95;
+                this.vx *= 0.94; // friction
+                this.vy *= 0.94;
                 this.life++;
             }
         });
@@ -2658,6 +2668,11 @@ function updateBoss() {
 // --- CORE PHYSICS LOOP & COLLISIONS ---
 
 function updatePhysics() {
+    // Decay flash vignette
+    if (state.flashVignette && state.flashVignette.alpha > 0) {
+        state.flashVignette.alpha -= 0.025;
+    }
+    
     // Update moving special bricks
     updateSpecialBricks();
     
@@ -2975,6 +2990,7 @@ function handleLifeLost() {
     state.lives--;
     playSound('lost');
     triggerScreenShake(15);
+    state.flashVignette = { color: '#ff0055', alpha: 0.65 };
     addLogLine(`NEURAL PACKET DROP. LIVES REMAINING: ${state.lives}`);
     
     if (state.lives <= 0) {
@@ -3036,6 +3052,7 @@ function handleLevelComplete() {
     }
     
     playSound('powerup');
+    state.flashVignette = { color: '#00ffff', alpha: 0.45 };
     addLogLine(`FIREWALL BYPASSED. LINKING LAYER ${state.level}...`);
     
     // Generate bricks and reset balls for the next level immediately, so they are ready and saved
@@ -3819,6 +3836,56 @@ function draw() {
     
     // Draw balls
     balls.forEach(b => b.draw());
+    
+    // Draw horizontal static glitch lines during screen shake
+    if (state.screenShake > 0) {
+        if (Math.random() < 0.4) {
+            const numSlices = Math.floor(Math.random() * 2) + 1;
+            for (let s = 0; s < numSlices; s++) {
+                const sliceY = Math.random() * CANVAS_HEIGHT;
+                const sliceH = Math.random() * 20 + 5;
+                const offsetShift = (Math.random() - 0.5) * state.screenShake * 1.5;
+                
+                ctx.save();
+                ctx.globalAlpha = 0.25;
+                ctx.fillStyle = 'rgba(0, 255, 255, 0.4)';
+                ctx.fillRect(offsetShift, sliceY, CANVAS_WIDTH, sliceH);
+                ctx.fillStyle = 'rgba(255, 0, 85, 0.3)';
+                ctx.fillRect(-offsetShift, sliceY + (Math.random() * 4 - 2), CANVAS_WIDTH, sliceH);
+                ctx.restore();
+            }
+        }
+        
+        if (Math.random() < 0.15) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+            ctx.lineWidth = 1;
+            const vectorY = Math.random() * CANVAS_HEIGHT;
+            ctx.beginPath();
+            ctx.moveTo(0, vectorY);
+            ctx.lineTo(CANVAS_WIDTH, vectorY);
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+
+    // Draw fullscreen radial gradient flash vignette overlay
+    if (state.flashVignette && state.flashVignette.alpha > 0) {
+        ctx.save();
+        const vGrad = ctx.createRadialGradient(
+            CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 50, 
+            CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH * 0.8
+        );
+        vGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        const hex = state.flashVignette.color;
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        vGrad.addColorStop(1, `rgba(${r}, ${g}, ${b}, ${state.flashVignette.alpha})`);
+        ctx.fillStyle = vGrad;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        ctx.restore();
+    }
     
     ctx.restore();
 }
