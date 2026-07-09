@@ -2170,17 +2170,32 @@ function generateBricks() {
     
     if (state.level % 5 === 0) {
         state.bossActive = true;
-        state.flashVignette = { color: '#ff5500', alpha: 0.75 };
+        
+        const bossType = Math.floor((state.level / 5 - 1) % 3);
+        let bossName = 'ENTERPRISE_FIREWALL // 企业网关防火墙';
+        let bossColor = '#ff0055';
+        if (bossType === 1) {
+            bossName = 'SECTOR_OVERLORD // 扇区领主核心';
+            bossColor = '#00d2ff';
+        } else if (bossType === 2) {
+            bossName = 'AI_SINGULARITY // 奇点意识核心';
+            bossColor = '#05ff50';
+        }
+        
+        state.flashVignette = { color: bossColor, alpha: 0.75 };
         state.boss = {
+            type: bossType,
+            name: bossName,
+            color: bossColor,
             x: CANVAS_WIDTH / 2 - 80,
             y: 80,
             width: 160,
             height: 60,
-            vx: 1.2,
+            vx: 1.2 + bossType * 0.3,
             hp: 30 + state.level * 6,
             maxHp: 30 + state.level * 6,
-            shieldHp: 3,
-            maxShieldHp: 3,
+            shieldHp: 3 + bossType,
+            maxShieldHp: 3 + bossType,
             fireTimer: 120,
             bullets: []
         };
@@ -2189,7 +2204,7 @@ function generateBricks() {
         for (let c = 1; c < 9; c++) {
             const brickType = (c % 2 === 0) ? 5 : 6;
             let maxHp = (brickType === 5) ? 99999 : 2;
-            let color = (brickType === 5) ? '#78909c' : '#ff6a00';
+            let color = (brickType === 5) ? (bossType === 1 ? '#00bcff' : (bossType === 2 ? '#00ff44' : '#78909c')) : '#ff6a00';
             
             const newBrick = {
                 c: c,
@@ -2568,6 +2583,24 @@ function detonateExplosiveVolatile(sourceBrick) {
 }
 
 function dropPowerup(x, y) {
+    if (state.powerupsLastSecondTimestamp === undefined) {
+        state.powerupsLastSecondTimestamp = Date.now();
+        state.powerupsDroppedThisSecond = 0;
+    }
+    
+    const now = Date.now();
+    if (now - state.powerupsLastSecondTimestamp >= 1000) {
+        state.powerupsDroppedThisSecond = 0;
+        state.powerupsLastSecondTimestamp = now;
+    }
+    
+    const MAX_POWERUPS_PER_SECOND = 2; // Limit: Max 2 power-up blocks per second
+    if (state.powerupsDroppedThisSecond >= MAX_POWERUPS_PER_SECOND) {
+        return; // Exceeded limit, skip drop
+    }
+    
+    state.powerupsDroppedThisSecond++;
+    
     const keysArr = Object.keys(POWERUP_TYPES);
     const chosenType = keysArr[Math.floor(Math.random() * keysArr.length)];
     const pConf = POWERUP_TYPES[chosenType];
@@ -2803,25 +2836,107 @@ function updateBoss() {
     // Bullet shoot reload timer
     boss.fireTimer--;
     if (boss.fireTimer <= 0) {
-        // Spawn bullet from bottom center of boss
-        boss.bullets.push({
-            x: boss.x + boss.width / 2,
-            y: boss.y + boss.height,
-            vy: 3.5,
-            radius: 6,
-            color: '#ff3333'
-        });
         playSound('laser');
-        boss.fireTimer = 140 + Math.random() * 80;
+        
+        // Spawn bullet based on Boss Type
+        if (boss.type === 1) {
+            // Type 1: Sector Overlord - targeted tracking bullet
+            const dx = (paddle.x + paddle.width / 2) - (boss.x + boss.width / 2);
+            const dy = paddle.y - (boss.y + boss.height);
+            const dist = Math.hypot(dx, dy);
+            const bulletSpeed = 4.2;
+            const vx = dist > 0 ? (dx / dist) * bulletSpeed : 0;
+            const vy = dist > 0 ? (dy / dist) * bulletSpeed : bulletSpeed;
+            
+            boss.bullets.push({
+                type: 1,
+                x: boss.x + boss.width / 2,
+                y: boss.y + boss.height,
+                vx: vx,
+                vy: vy,
+                radius: 6,
+                color: '#00d2ff'
+            });
+            boss.fireTimer = 110 + Math.random() * 60; // shoots slightly faster
+        } else if (boss.type === 2) {
+            // Type 2: AI Singularity - splitting bullet
+            boss.bullets.push({
+                type: 2,
+                x: boss.x + boss.width / 2,
+                y: boss.y + boss.height,
+                vx: 0,
+                vy: 2.8,
+                radius: 7,
+                color: '#05ff50',
+                splitTimer: 80 // splits after descending 80 ticks
+            });
+            boss.fireTimer = 150 + Math.random() * 80;
+        } else {
+            // Type 0: Enterprise Firewall - simple descending bullet
+            boss.bullets.push({
+                type: 0,
+                x: boss.x + boss.width / 2,
+                y: boss.y + boss.height,
+                vx: 0,
+                vy: 3.5,
+                radius: 6,
+                color: '#ff3333'
+            });
+            boss.fireTimer = 140 + Math.random() * 80;
+        }
     }
     
     // Update bullets
     for (let i = boss.bullets.length - 1; i >= 0; i--) {
         const bullet = boss.bullets[i];
+        
+        // Handle horizontal movement for tracking projectiles
+        if (bullet.vx !== undefined) {
+            bullet.x += bullet.vx;
+        }
         bullet.y += bullet.vy;
         
+        // Handle Type 2 bullet splitting
+        if (bullet.type === 2) {
+            bullet.splitTimer--;
+            if (bullet.splitTimer <= 0) {
+                // Split bullet into 3 children
+                boss.bullets.splice(i, 1);
+                playSound('bounce');
+                
+                boss.bullets.push({
+                    type: 3,
+                    x: bullet.x,
+                    y: bullet.y,
+                    vx: -1.4,
+                    vy: 3.0,
+                    radius: 5,
+                    color: '#05ff50'
+                });
+                boss.bullets.push({
+                    type: 3,
+                    x: bullet.x,
+                    y: bullet.y,
+                    vx: 0,
+                    vy: 3.5,
+                    radius: 5,
+                    color: '#05ff50'
+                });
+                boss.bullets.push({
+                    type: 3,
+                    x: bullet.x,
+                    y: bullet.y,
+                    vx: 1.4,
+                    vy: 3.0,
+                    radius: 5,
+                    color: '#05ff50'
+                });
+                continue;
+            }
+        }
+        
         // Remove offscreen
-        if (bullet.y > CANVAS_HEIGHT) {
+        if (bullet.y > CANVAS_HEIGHT || bullet.x < 0 || bullet.x > CANVAS_WIDTH) {
             boss.bullets.splice(i, 1);
             continue;
         }
@@ -2832,14 +2947,32 @@ function updateBoss() {
             bullet.x + bullet.radius >= paddle.x &&
             bullet.x - bullet.radius <= paddle.x + paddle.width) {
             
-            // Glitch shrink active debuff
-            activeMods['GLITCH_SHRINK'] = 180;
-            paddle.targetWidth = 60;
-            state.multiplier = Math.max(1.0, state.multiplier - 0.5);
-            playSound('lost');
-            triggerScreenShake(12);
             state.glitchedInLevel = true;
-            triggerGlitchAlert("SYSTEM CORRUPTED // 挡板线宽系统被篡改");
+            
+            // Custom hit effects based on bullet color/type
+            if (bullet.color === '#00d2ff') {
+                // Sector Overlord targeted bullet: drains credits & flash vignette
+                state.score = Math.max(0, state.score - 80);
+                state.flashVignette = { color: '#00d2ff', alpha: 0.8 };
+                playSound('lost');
+                triggerScreenShake(10);
+                triggerGlitchAlert("CREDIT DRAINED // 核心积分遭网关窃取 -80 CR");
+            } else if (bullet.color === '#05ff50') {
+                // AI Singularity splitting bullet: multiplier decay & overheat vignette
+                state.multiplier = Math.max(1.0, state.multiplier - 0.8);
+                state.flashVignette = { color: '#05ff50', alpha: 0.8 };
+                playSound('lost');
+                triggerScreenShake(12);
+                triggerGlitchAlert("SYS_OVERHEAT // 核心处理器温度过载");
+            } else {
+                // Enterprise Firewall normal bullet: glitch shrink paddle size
+                activeMods['GLITCH_SHRINK'] = 180;
+                paddle.targetWidth = 60;
+                state.multiplier = Math.max(1.0, state.multiplier - 0.5);
+                playSound('lost');
+                triggerScreenShake(12);
+                triggerGlitchAlert("SYSTEM CORRUPTED // 挡板线宽系统被篡改");
+            }
             
             boss.bullets.splice(i, 1);
         }
@@ -3936,37 +4069,95 @@ function draw() {
             c.save();
             c.translate(offsetX, 0);
             c.shadowBlur = 20;
-            c.shadowColor = '#ff0055';
-            c.fillStyle = '#110a15'; // dark core body
-            c.strokeStyle = '#ff0055'; // glowing red outline
+            c.shadowColor = boss.color || '#ff0055';
+            c.fillStyle = '#0d0e1c'; // dark core body
+            c.strokeStyle = boss.color || '#ff0055';
             c.lineWidth = 3;
             
-            c.beginPath();
-            c.moveTo(boss.x, boss.y + 15);
-            c.lineTo(boss.x + 30, boss.y);
-            c.lineTo(boss.x + boss.width - 30, boss.y);
-            c.lineTo(boss.x + boss.width, boss.y + 15);
-            c.lineTo(boss.x + boss.width - 15, boss.y + boss.height);
-            c.lineTo(boss.x + 15, boss.y + boss.height);
-            c.closePath();
-            c.fill();
-            c.stroke();
-            
-            // Tech details inside boss core
-            c.strokeStyle = 'rgba(255, 0, 85, 0.4)';
-            c.lineWidth = 1;
-            c.beginPath();
-            c.moveTo(boss.x + 20, boss.y + boss.height/2);
-            c.lineTo(boss.x + boss.width - 20, boss.y + boss.height/2);
-            c.stroke();
-            
-            // Pulsing power core
-            const pulse = 1.0 + Math.sin(Date.now() / 100) * 0.2;
-            c.fillStyle = '#ff0055';
-            c.shadowColor = '#ff0055';
-            c.beginPath();
-            c.arc(boss.x + boss.width / 2, boss.y + boss.height / 2, 10 * pulse, 0, Math.PI * 2);
-            c.fill();
+            if (boss.type === 1) {
+                // Type 1: Sector Overlord Circle
+                const cx = boss.x + boss.width / 2;
+                const cy = boss.y + boss.height / 2;
+                const r = Math.min(boss.width, boss.height) / 2 + 10;
+                
+                c.beginPath();
+                c.arc(cx, cy, r, 0, Math.PI * 2);
+                c.fill();
+                c.stroke();
+                
+                // Segmented rotating outer shield ring
+                c.strokeStyle = 'rgba(0, 210, 255, 0.6)';
+                c.lineWidth = 2.5;
+                c.setLineDash([15, 20]);
+                c.beginPath();
+                c.arc(cx, cy, r + 15, Date.now() / 600, Date.now() / 600 + Math.PI * 2);
+                c.stroke();
+                c.setLineDash([]);
+                
+                // Pulsing cyan core
+                const pulse = 1.0 + Math.sin(Date.now() / 100) * 0.2;
+                c.fillStyle = '#00d2ff';
+                c.shadowColor = '#00d2ff';
+                c.beginPath();
+                c.arc(cx, cy, 12 * pulse, 0, Math.PI * 2);
+                c.fill();
+            } else if (boss.type === 2) {
+                // Type 2: AI Singularity sharp diamond / triangle
+                const cx = boss.x + boss.width / 2;
+                const cy = boss.y + boss.height / 2;
+                
+                c.beginPath();
+                c.moveTo(cx, boss.y);
+                c.lineTo(boss.x + boss.width - 20, cy);
+                c.lineTo(cx, boss.y + boss.height);
+                c.lineTo(boss.x + 20, cy);
+                c.closePath();
+                c.fill();
+                c.stroke();
+                
+                // Glitchy lines
+                if (Math.random() < 0.25) {
+                    c.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                    c.lineWidth = 1;
+                    c.strokeRect(boss.x + Math.random() * 20, boss.y + Math.random() * 20, boss.width - 40, boss.height - 20);
+                }
+                
+                // Pulsing green core
+                const pulse = 1.0 + Math.sin(Date.now() / 80) * 0.3;
+                c.fillStyle = '#05ff50';
+                c.shadowColor = '#05ff50';
+                c.beginPath();
+                c.arc(cx, cy, 10 * pulse, 0, Math.PI * 2);
+                c.fill();
+            } else {
+                // Type 0: Enterprise Firewall (Hexagon)
+                c.beginPath();
+                c.moveTo(boss.x, boss.y + 15);
+                c.lineTo(boss.x + 30, boss.y);
+                c.lineTo(boss.x + boss.width - 30, boss.y);
+                c.lineTo(boss.x + boss.width, boss.y + 15);
+                c.lineTo(boss.x + boss.width - 15, boss.y + boss.height);
+                c.lineTo(boss.x + 15, boss.y + boss.height);
+                c.closePath();
+                c.fill();
+                c.stroke();
+                
+                // Tech details inside boss core
+                c.strokeStyle = 'rgba(255, 0, 85, 0.4)';
+                c.lineWidth = 1;
+                c.beginPath();
+                c.moveTo(boss.x + 20, boss.y + boss.height/2);
+                c.lineTo(boss.x + boss.width - 20, boss.y + boss.height/2);
+                c.stroke();
+                
+                // Pulsing power core
+                const pulse = 1.0 + Math.sin(Date.now() / 100) * 0.2;
+                c.fillStyle = '#ff0055';
+                c.shadowColor = '#ff0055';
+                c.beginPath();
+                c.arc(boss.x + boss.width / 2, boss.y + boss.height / 2, 10 * pulse, 0, Math.PI * 2);
+                c.fill();
+            }
             c.restore();
         }
         
@@ -4007,8 +4198,8 @@ function draw() {
         
         // HP Fill
         const hpPct = Math.max(0, boss.hp / boss.maxHp);
-        ctx.fillStyle = '#ff0055';
-        ctx.shadowColor = '#ff0055';
+        ctx.fillStyle = boss.color || '#ff0055';
+        ctx.shadowColor = boss.color || '#ff0055';
         ctx.shadowBlur = 10;
         ctx.fillRect(barX + 2, barY + 2, (barW - 4) * hpPct, barH - 4);
         
@@ -4017,7 +4208,7 @@ function draw() {
         ctx.fillStyle = '#ffffff';
         ctx.font = '9px "Orbitron"';
         ctx.textAlign = 'center';
-        ctx.fillText(`SECURE_GATEWAY_INTEGRITY // 防火墙安全度 ${Math.round(hpPct * 100)}%`, CANVAS_WIDTH / 2, barY - 6);
+        ctx.fillText(`${boss.name || 'SECURE_GATEWAY_INTEGRITY'} // 安全度 ${Math.round(hpPct * 100)}%`, CANVAS_WIDTH / 2, barY - 6);
         
         // 4. Draw Boss Bullets
         boss.bullets.forEach(bullet => {
