@@ -4302,6 +4302,52 @@ function drawThemeBackground() {
 
 // --- EVENT HANDLERS & INITIALIZATION ---
 
+const STAGES_CONFIG = [
+    { num: 1, title: "STAGE 01: Cyber Grid", desc: "BASIC NET ACCESS // 基础核心网格" },
+    { num: 2, title: "STAGE 02: Processor Chip", desc: "CORE MICRO-PROCESSOR // 处理器微芯片" },
+    { num: 3, title: "STAGE 03: Security Firewall", desc: "HEAVY PORT SECURITY // 高强度网络防火墙" },
+    { num: 4, title: "STAGE 04: Central Mainframe", desc: "CORE STORAGE NODE // 中央核心主机" },
+    { num: 5, title: "STAGE 05: Firewall Boss [🔴]", desc: "ENTERPRISE_FIREWALL // 企业防火墙网关", boss: true },
+    { num: 6, title: "STAGE 06: Grid Overload", desc: "VOLATILE POWER CORES // 电网过载核心" },
+    { num: 7, title: "STAGE 07: Memory Sector", desc: "SECTOR DATABASE REGISTRIES // 闪存数据扇区" },
+    { num: 8, title: "STAGE 08: Deep Frame", desc: "CYBER NET DEEP SECURITY // 深度加密网络" },
+    { num: 9, title: "STAGE 09: Vector Field", desc: "INDISPENSABLE DEFENSE SYSTEM // 矢量偏转场" },
+    { num: 10, title: "STAGE 10: Overlord Boss [🔵]", desc: "SECTOR_OVERLORD // 扇区霸主核心", boss: true }
+];
+
+function openLevelSelect() {
+    const grid = document.querySelector('#level-select-overlay .level-select-grid');
+    if (grid) {
+        grid.innerHTML = '';
+        STAGES_CONFIG.forEach(stage => {
+            const btn = document.createElement('button');
+            btn.className = `stage-node-btn ${stage.boss ? 'boss-node' : ''}`;
+            
+            const titleSpan = document.createElement('span');
+            titleSpan.className = 'stage-node-title';
+            titleSpan.innerText = stage.title;
+            
+            const descSpan = document.createElement('span');
+            descSpan.className = 'stage-node-desc';
+            descSpan.innerText = stage.desc;
+            
+            btn.appendChild(titleSpan);
+            btn.appendChild(descSpan);
+            
+            btn.addEventListener('click', () => {
+                state.level = stage.num;
+                document.getElementById('level-select-overlay').classList.add('hidden');
+                startGame('STORY');
+            });
+            
+            grid.appendChild(btn);
+        });
+    }
+    
+    document.getElementById('menu-overlay').classList.add('hidden');
+    document.getElementById('level-select-overlay').classList.remove('hidden');
+}
+
 function setupInputListeners() {
     // Keyboard inputs
     window.addEventListener('keydown', e => {
@@ -4385,6 +4431,11 @@ function setupInputListeners() {
     // Wire up buttons
     document.getElementById('start-story-btn').addEventListener('click', () => startGame('STORY'));
     document.getElementById('start-endless-btn').addEventListener('click', () => startGame('ENDLESS'));
+    document.getElementById('menu-select-btn').addEventListener('click', () => openLevelSelect());
+    document.getElementById('level-select-back-btn').addEventListener('click', () => {
+        document.getElementById('level-select-overlay').classList.add('hidden');
+        document.getElementById('menu-overlay').classList.remove('hidden');
+    });
     document.getElementById('retry-btn').addEventListener('click', () => startGame(state.gameMode));
     document.getElementById('win-retry-btn').addEventListener('click', () => startGame(state.gameMode));
     document.getElementById('next-level-btn').addEventListener('click', () => handleShopNext());
