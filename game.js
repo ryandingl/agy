@@ -2003,6 +2003,167 @@ function createRandomSymmetricLayout(rows, cols) {
     return layout;
 }
 
+// Factory to create Brick objects with all operations attached
+function constructBrick(c, r, brickType, hp, maxHp, color, x = null, y = null, width = null, height = null) {
+    const finalX = x !== null ? x : c * (BRICK_WIDTH + BRICK_PADDING) + BRICK_OFFSET_LEFT;
+    const finalY = y !== null ? y : r * (BRICK_HEIGHT + BRICK_PADDING) + BRICK_OFFSET_TOP;
+    const finalWidth = width !== null ? width : BRICK_WIDTH;
+    const finalHeight = height !== null ? height : BRICK_HEIGHT;
+    
+    return {
+        c: c,
+        r: r,
+        x: finalX,
+        y: finalY,
+        width: finalWidth,
+        height: finalHeight,
+        type: brickType,
+        hp: hp,
+        maxHp: maxHp,
+        color: color,
+        hit(damage = 1) {
+            if (this.type === 5) {
+                playSound('hit_yellow'); // Metal hit clang
+                spawnParticles(this.x + this.width/2, this.y + this.height/2, '#00ffff', 4);
+                return false; // Indestructible
+            }
+            this.hp -= damage;
+            if (this.hp <= 0) {
+                this.destroy();
+                return true; // Destroyed
+            } else {
+                // Play normal deflection beep
+                if (this.type === 2) playSound('hit_magenta');
+                if (this.type === 3) playSound('hit_yellow');
+                if (this.type === 6) {
+                    playSound('hit_magenta');
+                    this.color = '#ffaa44'; // turn lighter when damaged
+                }
+                
+                // Spawn light particle dust
+                spawnParticles(this.x + this.width/2, this.y + this.height/2, this.color, 4);
+                return false;
+            }
+        },
+        destroy() {
+            // Update score & multipliers
+            let baseVal = 1.0;
+            if (this.type === 2) baseVal = 2.0;
+            if (this.type === 3) baseVal = 4.0;
+            if (this.type === 4) baseVal = 2.5;
+            if (this.type === 6) baseVal = 5.0; // Higher reward for core
+            
+            state.score += baseVal * state.multiplier;
+            const isSynthWave = (state.skins && state.skins.theme && state.skins.theme.active === 1);
+            state.multiplier += isSynthWave ? 0.15 : 0.1;
+            
+            // Explosion particles matching color
+            spawnParticles(this.x + this.width / 2, this.y + this.height / 2, this.color, 12);
+            spawnShockwave(this.x + this.width / 2, this.y + this.height / 2, this.color);
+            
+            // Trigger sound
+            if (this.type === 4) {
+                playSound('hit_red');
+                triggerScreenShake(8);
+                detonateExplosive(this);
+            } else if (this.type === 6) {
+                playSound('hit_red');
+                triggerScreenShake(12);
+                detonateExplosiveVolatile(this);
+            } else {
+                const hitSnd = this.type === 2 ? 'hit_magenta' : (this.type === 3 ? 'hit_yellow' : 'hit_cyan');
+                playSound(hitSnd);
+                triggerScreenShake(3);
+            }
+            
+            // Power-up chance (5% rate + brick skin bonus)
+            if (Math.random() < 0.05 + getBrickSkinBonus()) {
+                dropPowerup(this.x + this.width/2, this.y + this.height);
+            }
+        },
+        draw(c = ctx) {
+            if (this.type === 5) {
+                c.save();
+                c.shadowBlur = 12;
+                c.shadowColor = '#00ffff';
+                c.fillStyle = '#1e2430'; // dark metallic grey
+                c.strokeStyle = '#00ffff'; // glowing cyan borders
+                c.lineWidth = 2.0;
+                c.fillRect(this.x, this.y, this.width, this.height);
+                c.strokeRect(this.x, this.y, this.width, this.height);
+                
+                // Shield diagonal metallic lines
+                c.strokeStyle = 'rgba(0, 255, 255, 0.25)';
+                c.lineWidth = 1.5;
+                c.beginPath();
+                c.moveTo(this.x + 8, this.y + 2);
+                c.lineTo(this.x + 2, this.y + 8);
+                c.moveTo(this.x + this.width - 8, this.y + this.height - 2);
+                c.lineTo(this.x + this.width - 2, this.y + this.height - 8);
+                c.stroke();
+                
+                // Shield icon symbol inside
+                c.fillStyle = '#00ffff';
+                c.beginPath();
+                const cx = this.x + this.width / 2;
+                const cy = this.y + this.height / 2;
+                c.moveTo(cx - 6, cy - 5);
+                c.lineTo(cx + 6, cy - 5);
+                c.lineTo(cx + 4, cy + 2);
+                c.quadraticCurveTo(cx, cy + 6, cx, cy + 8);
+                c.quadraticCurveTo(cx, cy + 6, cx - 4, cy + 2);
+                c.closePath();
+                c.fill();
+                c.restore();
+                return;
+            }
+            
+            if (this.type === 6) {
+                c.save();
+                c.shadowBlur = 15;
+                c.shadowColor = '#ff6a00';
+                const alpha = this.hp / this.maxHp;
+                c.fillStyle = `rgba(255, 106, 0, ${alpha * 0.4 + 0.3})`;
+                c.strokeStyle = '#ff6a00';
+                c.lineWidth = 2.0;
+                c.fillRect(this.x, this.y, this.width, this.height);
+                c.strokeRect(this.x, this.y, this.width, this.height);
+                
+                // Draw pulsing core ring inside
+                const pulse = 1.0 + Math.sin(Date.now() / 80) * 0.15;
+                c.strokeStyle = '#ffffff';
+                c.shadowColor = '#ffffff';
+                c.lineWidth = 1;
+                c.beginPath();
+                c.arc(this.x + this.width/2, this.y + this.height/2, 6 * pulse, 0, Math.PI * 2);
+                c.stroke();
+                
+                // Hazard warning stripes
+                c.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                c.lineWidth = 2;
+                c.beginPath();
+                c.moveTo(this.x + 3, this.y + 3);
+                c.lineTo(this.x + 10, this.y + 10);
+                c.moveTo(this.x + this.width - 3, this.y + 3);
+                c.lineTo(this.x + this.width - 10, this.y + this.height - 2);
+                c.stroke();
+                c.restore();
+                return;
+            }
+            
+            const active = (state.skins && state.skins.brick) ? state.skins.brick.active : 0;
+            const skin = SKINS_CONFIG.brick[active] || SKINS_CONFIG.brick[0];
+            skin.draw(this, c);
+        },
+        hexToRgb(hex) {
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            return `${r}, ${g}, ${b}`;
+        }
+    };
+}
+
 // Generate level layout
 function generateBricks() {
     bricks = [];
@@ -4465,80 +4626,7 @@ function loadEndlessState() {
 
 // Factory to recreate Brick objects with all operations attached
 function createBrickObject(bData) {
-    return {
-        c: bData.c,
-        r: bData.r,
-        x: bData.x,
-        y: bData.y,
-        width: bData.width || BRICK_WIDTH,
-        height: bData.height || BRICK_HEIGHT,
-        type: bData.type,
-        hp: bData.hp,
-        maxHp: bData.maxHp,
-        color: bData.color,
-        hit(damage = 1) {
-            this.hp -= damage;
-            if (this.hp <= 0) {
-                this.destroy();
-                return true;
-            } else {
-                if (this.type === 2) playSound('hit_magenta');
-                if (this.type === 3) playSound('hit_yellow');
-                spawnParticles(this.x + this.width/2, this.y + this.height/2, this.color, 4);
-                return false;
-            }
-        },
-        destroy() {
-            let baseVal = 1.0;
-            if (this.type === 2) baseVal = 2.0;
-            if (this.type === 3) baseVal = 4.0;
-            if (this.type === 4) baseVal = 2.5;
-            
-            state.score += baseVal * state.multiplier;
-            const isSynthWave = (state.skins && state.skins.theme && state.skins.theme.active === 1);
-            state.multiplier += isSynthWave ? 0.15 : 0.1;
-            
-            spawnParticles(this.x + this.width / 2, this.y + this.height / 2, this.color, 12);
-            
-            if (this.type === 4) {
-                playSound('hit_red');
-                triggerScreenShake(8);
-                detonateExplosive(this);
-            } else {
-                const hitSnd = this.type === 2 ? 'hit_magenta' : (this.type === 3 ? 'hit_yellow' : 'hit_cyan');
-                playSound(hitSnd);
-                triggerScreenShake(3);
-            }
-            
-            if (Math.random() < 0.05) {
-                dropPowerup(this.x + this.width/2, this.y + this.height);
-            }
-        },
-        draw() {
-            ctx.save();
-            ctx.shadowBlur = 8;
-            ctx.shadowColor = this.color;
-            const alpha = this.hp / this.maxHp;
-            ctx.fillStyle = `rgba(${this.hexToRgb(this.color)}, ${alpha * 0.7})`;
-            ctx.strokeStyle = this.color;
-            ctx.lineWidth = 1.5;
-            ctx.fillRect(this.x, this.y, this.width, this.height);
-            ctx.strokeRect(this.x, this.y, this.width, this.height);
-            ctx.lineWidth = 0.5;
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-            ctx.beginPath();
-            ctx.moveTo(this.x + 5, this.y + 2);
-            ctx.lineTo(this.x + this.width - 5, this.y + this.height - 2);
-            ctx.stroke();
-            ctx.restore();
-        },
-        hexToRgb(hex) {
-            const r = parseInt(hex.slice(1, 3), 16);
-            const g = parseInt(hex.slice(3, 5), 16);
-            const b = parseInt(hex.slice(5, 7), 16);
-            return `${r}, ${g}, ${b}`;
-        }
-    };
+    return constructBrick(bData.c, bData.r, bData.type, bData.hp, bData.maxHp, bData.color, bData.x, bData.y, bData.width, bData.height);
 }
 
 // Game Loop standard requestAnimationFrame
