@@ -3374,6 +3374,14 @@ function handleLevelComplete() {
 
     state.level++;
     
+    if (state.gameMode === 'ENDLESS') {
+        const storedMax = parseInt(localStorage.getItem('cyberbreak_endless_maxlevel')) || 1;
+        if (state.level > storedMax) {
+            state.endlessMaxLevel = state.level;
+            localStorage.setItem('cyberbreak_endless_maxlevel', state.level);
+        }
+    }
+    
     // Check if player cleared all levels (Story mode only)
     if (state.gameMode === 'STORY') {
         const totalPredefined = LEVEL_LAYOUTS.length;
@@ -4302,46 +4310,56 @@ function drawThemeBackground() {
 
 // --- EVENT HANDLERS & INITIALIZATION ---
 
-const STAGES_CONFIG = [
-    { num: 1, title: "STAGE 01: Cyber Grid", desc: "BASIC NET ACCESS // 基础核心网格" },
-    { num: 2, title: "STAGE 02: Processor Chip", desc: "CORE MICRO-PROCESSOR // 处理器微芯片" },
-    { num: 3, title: "STAGE 03: Security Firewall", desc: "HEAVY PORT SECURITY // 高强度网络防火墙" },
-    { num: 4, title: "STAGE 04: Central Mainframe", desc: "CORE STORAGE NODE // 中央核心主机" },
-    { num: 5, title: "STAGE 05: Firewall Boss [🔴]", desc: "ENTERPRISE_FIREWALL // 企业防火墙网关", boss: true },
-    { num: 6, title: "STAGE 06: Grid Overload", desc: "VOLATILE POWER CORES // 电网过载核心" },
-    { num: 7, title: "STAGE 07: Memory Sector", desc: "SECTOR DATABASE REGISTRIES // 闪存数据扇区" },
-    { num: 8, title: "STAGE 08: Deep Frame", desc: "CYBER NET DEEP SECURITY // 深度加密网络" },
-    { num: 9, title: "STAGE 09: Vector Field", desc: "INDISPENSABLE DEFENSE SYSTEM // 矢量偏转场" },
-    { num: 10, title: "STAGE 10: Overlord Boss [🔵]", desc: "SECTOR_OVERLORD // 扇区霸主核心", boss: true }
-];
-
 function openLevelSelect() {
     const grid = document.querySelector('#level-select-overlay .level-select-grid');
     if (grid) {
         grid.innerHTML = '';
-        STAGES_CONFIG.forEach(stage => {
+        
+        // Dynamically build buttons from Level 1 up to state.endlessMaxLevel
+        const maxLevel = state.endlessMaxLevel || 1;
+        
+        for (let lvl = 1; lvl <= maxLevel; lvl++) {
+            const isBoss = (lvl % 5 === 0);
             const btn = document.createElement('button');
-            btn.className = `stage-node-btn ${stage.boss ? 'boss-node' : ''}`;
+            btn.className = `stage-node-btn ${isBoss ? 'boss-node' : ''}`;
             
             const titleSpan = document.createElement('span');
             titleSpan.className = 'stage-node-title';
-            titleSpan.innerText = stage.title;
+            
+            let bossIndicator = '';
+            if (isBoss) {
+                const bossType = Math.floor((lvl / 5 - 1) % 3);
+                bossIndicator = bossType === 1 ? ' [🔵 Boss]' : (bossType === 2 ? ' [🟢 Boss]' : ' [🔴 Boss]');
+            }
+            titleSpan.innerText = `NODE ${String(lvl).padStart(2, '0')}${bossIndicator}`;
             
             const descSpan = document.createElement('span');
             descSpan.className = 'stage-node-desc';
-            descSpan.innerText = stage.desc;
+            if (isBoss) {
+                const bossType = Math.floor((lvl / 5 - 1) % 3);
+                let bossName = 'ENTERPRISE_FIREWALL // 企业网关防火墙';
+                if (bossType === 1) bossName = 'SECTOR_OVERLORD // 扇区领主核心';
+                if (bossType === 2) bossName = 'AI_SINGULARITY // 奇点意识核心';
+                descSpan.innerText = `ALERT: ${bossName}`;
+            } else {
+                descSpan.innerText = `DATA_GRID // 无尽数据链路节点 ${lvl}`;
+            }
             
             btn.appendChild(titleSpan);
             btn.appendChild(descSpan);
             
             btn.addEventListener('click', () => {
-                state.level = stage.num;
+                state.level = lvl;
                 document.getElementById('level-select-overlay').classList.add('hidden');
-                startGame('STORY');
+                
+                // Clear any existing saved session so it doesn't conflict
+                clearEndlessState();
+                
+                startGame('ENDLESS');
             });
             
             grid.appendChild(btn);
-        });
+        }
     }
     
     document.getElementById('menu-overlay').classList.add('hidden');
@@ -4675,6 +4693,7 @@ function loadHighScore() {
         state.highScore = parseInt(cached);
         document.getElementById('high-score-val').innerText = String(state.highScore).padStart(6, '0');
     }
+    state.endlessMaxLevel = parseInt(localStorage.getItem('cyberbreak_endless_maxlevel')) || 1;
     loadLeaderboard();
 }
 
