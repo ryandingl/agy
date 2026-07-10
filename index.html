@@ -18,9 +18,15 @@
         errorDiv.style.borderRadius = '5px';
         errorDiv.style.userSelect = 'text';
         errorDiv.style.webkitUserSelect = 'text';
+        var errStack = error ? (error.stack || error.toString()) : 'No stack trace';
         errorDiv.innerHTML = '<strong>RUNTIME CRASH ENCOUNTERED:</strong><br>' + 
-                              message + '<br>Source: ' + source + ' (Line: ' + lineno + ')';
+                              message + '<br>Source: ' + source + ' (Line: ' + lineno + ')<br>Stack: ' + errStack;
         document.body.appendChild(errorDiv);
+        
+        // Report to server console
+        var logImg = new Image();
+        logImg.src = 'http://localhost:9000/report-error?msg=' + encodeURIComponent(message) + '&line=' + lineno + '&src=' + encodeURIComponent(source) + '&stack=' + encodeURIComponent(errStack);
+        
         return false;
     };
     </script>
