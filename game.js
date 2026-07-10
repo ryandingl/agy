@@ -4546,6 +4546,13 @@ function openLevelSelect() {
 function setupInputListeners() {
     // Keyboard inputs
     window.addEventListener('keydown', e => {
+        if (e.target.tagName === 'INPUT') {
+            if (e.key === 'Enter') {
+                handleLogin();
+            }
+            return;
+        }
+        
         keys[e.key] = true;
         
         if (['ArrowLeft', 'ArrowRight', 'a', 'A', 'd', 'D'].includes(e.key)) {
@@ -4573,6 +4580,9 @@ function setupInputListeners() {
     });
     
     window.addEventListener('keyup', e => {
+        if (e.target.tagName === 'INPUT') {
+            return;
+        }
         keys[e.key] = false;
     });
     
@@ -4929,6 +4939,10 @@ function resetEndlessProgress() {
     if (confirm("CRITICAL WARNING: WIPE ALL GRID NODES, CREDITS & SYSTEM UPGRADES? // 确定执行系统冷启动，重置无尽关卡、积分 and all skins?")) {
         // Clear Endless saved run progress
         clearEndlessState();
+        
+        // Clear endless max level jump node progress
+        storage.remove('cyberbreak_endless_maxlevel');
+        state.endlessMaxLevel = 1;
         
         // Reset credits (score)
         state.score = 0;
