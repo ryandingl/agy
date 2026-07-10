@@ -1886,10 +1886,16 @@ function spawnBall(x, y, attachToPaddle = false) {
         color: (SKINS_CONFIG.ball[state.skins ? state.skins.ball.active : 0] || SKINS_CONFIG.ball[0]).color,
         attached: attachToPaddle,
         trail: [],
+        delayFrames: (attachToPaddle || state.gameMode !== 'PONG_BATTLE') ? 0 : 90,
         update() {
             if (this.attached) {
                 this.x = paddle.x + paddle.width / 2;
                 this.y = paddle.y - this.radius - 2;
+                return;
+            }
+            
+            if (this.delayFrames > 0) {
+                this.delayFrames--;
                 return;
             }
             
@@ -1927,10 +1933,12 @@ function spawnBall(x, y, attachToPaddle = false) {
                 triggerScreenShake(2);
             }
             if (this.y - this.radius < 0) {
-                this.y = this.radius;
-                this.vy = -this.vy;
-                playSound('bounce');
-                triggerScreenShake(2);
+                if (state.gameMode !== 'PONG_BATTLE') {
+                    this.y = this.radius;
+                    this.vy = -this.vy;
+                    playSound('bounce');
+                    triggerScreenShake(2);
+                }
             }
             
             // Collide mirror walls if active
@@ -3220,17 +3228,19 @@ function updatePhysics() {
         // Check fall off top (Pong Battle only)
         if (state.gameMode === 'PONG_BATTLE' && b.y + b.radius < 0) {
             balls.splice(i, 1);
-            increaseScore(1);
-            state.botLives--;
-            updateHUD();
-            
-            if (state.botLives <= 0) {
-                triggerBattleComplete(true, "AI CORE LIFE DEPLETED // AI核心生命被彻底消耗");
-                return;
-            } else {
-                playSound('powerup');
-                triggerScreenShake(12);
-                spawnBall(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, false);
+            if (balls.length === 0) {
+                increaseScore(1);
+                state.botLives--;
+                updateHUD();
+                
+                if (state.botLives <= 0) {
+                    triggerBattleComplete(true, "AI CORE LIFE DEPLETED // AI核心生命被彻底消耗");
+                    return;
+                } else {
+                    playSound('powerup');
+                    triggerScreenShake(12);
+                    spawnBall(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, false);
+                }
             }
             continue;
         }
@@ -3280,17 +3290,19 @@ function updatePhysics() {
         if (b.y - b.radius > CANVAS_HEIGHT) {
             if (state.gameMode === 'PONG_BATTLE') {
                 balls.splice(i, 1);
-                state.botScore++;
-                state.lives--;
-                updateHUD();
-                
-                if (state.lives <= 0) {
-                    triggerBattleComplete(false, "YOUR CORE LIFE DEPLETED // 您的核心生命耗尽");
-                    return;
-                } else {
-                    playSound('lost');
-                    triggerScreenShake(12);
-                    spawnBall(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, false);
+                if (balls.length === 0) {
+                    state.botScore++;
+                    state.lives--;
+                    updateHUD();
+                    
+                    if (state.lives <= 0) {
+                        triggerBattleComplete(false, "YOUR CORE LIFE DEPLETED // 您的核心生命耗尽");
+                        return;
+                    } else {
+                        playSound('lost');
+                        triggerScreenShake(12);
+                        spawnBall(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, false);
+                    }
                 }
                 continue;
             }
@@ -4603,6 +4615,23 @@ function draw() {
         ctx.font = '8px "Share Tech Mono", monospace';
         ctx.fillText("AI_OPPONENT", aiPaddle.x + aiPaddle.width/2 - 26, aiPaddle.y - 6);
         ctx.restore();
+    }
+    
+    // Draw ball serve countdown during Pong Battle
+    if (state.gameMode === 'PONG_BATTLE') {
+        balls.forEach(b => {
+            if (b.delayFrames > 0) {
+                ctx.save();
+                ctx.fillStyle = 'rgba(0, 240, 255, 0.9)';
+                ctx.font = '16px "Share Tech Mono", monospace';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#00f0ff';
+                const secs = Math.ceil(b.delayFrames / 60);
+                ctx.textAlign = 'center';
+                ctx.fillText(`SERVE INCOMING IN ${secs}...`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 40);
+                ctx.restore();
+            }
+        });
     }
     
     // Draw balls
