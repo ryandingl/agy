@@ -38,6 +38,10 @@ const state = {
     currentShopTab: 'upgrades',
     currentSkinCategory: 'paddle',
     currentUser: null,
+    coolerPurchases: 0,
+    currentRadioTrack: 0,
+    contracts: [],
+    paddleBouncesInLevel: 0,
     skins: {
         paddle: {
             owned: [true, false, false, false],
@@ -58,6 +62,32 @@ const state = {
     }
 };
 
+// Safe Memory fallback for Private Browsing / Restricted Storage environments
+const memoryStore = {};
+const safeLocalStorage = {
+    getItem(key) {
+        try {
+            return localStorage.getItem(key);
+        } catch (e) {
+            return memoryStore[key] || null;
+        }
+    },
+    setItem(key, value) {
+        try {
+            localStorage.setItem(key, value);
+        } catch (e) {
+            memoryStore[key] = String(value);
+        }
+    },
+    removeItem(key) {
+        try {
+            localStorage.removeItem(key);
+        } catch (e) {
+            delete memoryStore[key];
+        }
+    }
+};
+
 // User Storage Keys Helper & Wrapper
 function getUserKey(key) {
     if (key === 'cyberbreak_highscore' || key === 'cyberbreak_leaderboard' || key === 'cyberbreak_registered_users' || key === 'cyberbreak_last_user') {
@@ -71,13 +101,13 @@ function getUserKey(key) {
 
 const storage = {
     get(key) {
-        return localStorage.getItem(getUserKey(key));
+        return safeLocalStorage.getItem(getUserKey(key));
     },
     set(key, value) {
-        localStorage.setItem(getUserKey(key), value);
+        safeLocalStorage.setItem(getUserKey(key), value);
     },
     remove(key) {
-        localStorage.removeItem(getUserKey(key));
+        safeLocalStorage.removeItem(getUserKey(key));
     }
 };
 
@@ -1154,6 +1184,7 @@ let mouseX = CANVAS_WIDTH / 2;
 
 // Entities
 let paddle;
+let ghostPaddle = { x: CANVAS_WIDTH / 2, width: 120 };
 let balls = [];
 let bricks = [];
 let powerups = [];
@@ -1241,7 +1272,12 @@ function initAudio() {
         audioCtx = new AudioContextClass();
         masterGain = audioCtx.createGain();
         masterGain.gain.setValueAtTime(state.audioEnabled ? 0.35 : 0, audioCtx.currentTime);
-        masterGain.connect(audioCtx.destination);
+        
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 64;
+        
+        masterGain.connect(analyser);
+        analyser.connect(audioCtx.destination);
         
         // Start background music loop
         startBgMusic();
@@ -1251,38 +1287,47 @@ function initAudio() {
     }
 }
 
-// Procedural background retro-synthwave bass loop
 // Procedural background retro-synthwave bass & drum loop with tempo modulation
+const RADIO_TRACKS = [
+    {
+        name: 'NEON_PULSE',
+        bpm: 115,
+        bass: [82.41, 82.41, 82.41, 98.00, 110.00, 110.00, 98.00, 73.42, 82.41, 82.41, 82.41, 123.47, 110.00, 98.00, 73.42, 65.41],
+        melody: [329.63, 0, 392.00, 523.25, 493.88, 0, 392.00, 329.63, 440.00, 0, 440.00, 587.33, 523.25, 493.88, 392.00, 293.66, 329.63, 329.63, 0, 392.00, 493.88, 523.25, 0, 587.33, 440.00, 0, 392.00, 329.63, 293.66, 0, 329.63, 0]
+    },
+    {
+        name: 'GATEWAY_BYPASS',
+        bpm: 135,
+        bass: [110.00, 110.00, 98.00, 98.00, 87.31, 87.31, 82.41, 82.41, 110.00, 110.00, 123.47, 123.47, 130.81, 130.81, 146.83, 82.41],
+        melody: [440.00, 523.25, 659.25, 587.33, 523.25, 493.88, 440.00, 329.63, 440.00, 523.25, 659.25, 587.33, 523.25, 587.33, 659.25, 0, 392.00, 493.88, 587.33, 523.25, 493.88, 392.00, 329.63, 293.66, 440.00, 440.00, 0, 523.25, 493.88, 0, 440.00, 0]
+    },
+    {
+        name: 'DEPOLARIZED',
+        bpm: 95,
+        bass: [65.41, 65.41, 65.41, 65.41, 87.31, 87.31, 98.00, 98.00, 65.41, 65.41, 65.41, 65.41, 87.31, 98.00, 130.81, 65.41],
+        melody: [392.00, 392.00, 440.00, 493.88, 392.00, 329.63, 349.23, 392.00, 392.00, 0, 440.00, 493.88, 523.25, 493.88, 440.00, 392.00, 440.00, 440.00, 0, 392.00, 329.63, 0, 349.23, 0, 293.66, 0, 329.63, 392.00, 261.63, 0, 293.66, 0]
+    }
+];
+
 function startBgMusic() {
     if (musicTimeout) clearTimeout(musicTimeout);
     
-    const bassline = [
-        82.41, 82.41, 82.41, 98.00,  // E2, E2, E2, G2
-        110.00, 110.00, 98.00, 73.42, // A2, A2, G2, D2
-        82.41, 82.41, 82.41, 123.47, // E2, E2, E2, B2
-        110.00, 98.00, 73.42, 65.41   // A2, G2, D2, C2
-    ];
-
-    const leadMelody = [
-        329.63, 0, 392.00, 523.25, 493.88, 0, 392.00, 329.63, // E4, 0, G4, C5, B4, 0, G4, E4
-        440.00, 0, 440.00, 587.33, 523.25, 493.88, 392.00, 293.66, // A4, 0, A4, D5, C5, B4, G4, D4
-        329.63, 329.63, 0, 392.00, 493.88, 523.25, 0, 587.33, // E4, E4, 0, G4, B4, C5, 0, D5
-        440.00, 0, 392.00, 329.63, 293.66, 0, 329.63, 0 // A4, 0, G4, E4, D4, 0, E4, 0
-    ];
-
+    const track = RADIO_TRACKS[state.currentRadioTrack || 0];
+    const bassline = track.bass;
+    const leadMelody = track.melody;
+    
     function playStep() {
         if (!audioCtx) return;
         
-        // Determine tempo (BPM) and pitch shift based on game state
-        let currentBpm = 115;
+        let currentBpm = track.bpm;
         let pitchMultiplier = 1.0;
         
         if (state.mode === 'PLAYING') {
             if (state.lives === 1) {
-                currentBpm = 145; // Panic speed!
+                currentBpm = track.bpm + 30; // Panic speed!
                 pitchMultiplier = 1.25; // Shift pitch higher
             } else if (state.multiplier >= 4.0) {
-                currentBpm = 132; // High adrenaline score speed
+                currentBpm = track.bpm + 17; // High adrenaline score speed
                 pitchMultiplier = 1.15;
             }
         }
@@ -1294,7 +1339,7 @@ function startBgMusic() {
             const baseFreq = bassline[musicStep % bassline.length];
             const freq = baseFreq * pitchMultiplier;
             
-            // 1. Synthesize Bass Synth
+            // 1. Bass Synth
             const osc = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
             
@@ -1303,7 +1348,6 @@ function startBgMusic() {
             
             const filter = audioCtx.createBiquadFilter();
             filter.type = 'lowpass';
-            // Open filter cut-off slightly when music speeds up
             const cutOff = (state.lives === 1 || state.multiplier >= 4) ? 450 : 300;
             filter.frequency.setValueAtTime(cutOff, now);
             filter.Q.setValueAtTime(4, now);
@@ -1707,7 +1751,10 @@ function updateHUD() {
     
     // Update core temp slightly dynamically based on score & active entities (boost when boss is active)
     const particlesLoad = particles.length;
-    const calcTemp = 37 + (state.multiplier * 3) + (particlesLoad * 0.1) + (state.bossActive ? 25 : 0);
+    let calcTemp = 37 + (state.multiplier * 3) + (particlesLoad * 0.1) + (state.bossActive ? 25 : 0);
+    calcTemp = Math.max(10, calcTemp - (state.coolerPurchases || 0) * 15);
+    state.diagnostics.coreTemp = calcTemp;
+    
     const tempNode = document.getElementById('diag-temp');
     tempNode.innerText = `${calcTemp.toFixed(1)}°C`;
     if (calcTemp > 50) {
@@ -2191,6 +2238,7 @@ function constructBrick(c, r, brickType, hp, maxHp, color, x = null, y = null, w
 // Generate level layout
 function generateBricks() {
     bricks = [];
+    state.paddleBouncesInLevel = 0;
     
     if (state.level % 5 === 0) {
         state.bossActive = true;
@@ -3034,6 +3082,15 @@ function updatePhysics() {
     // Clamp to border
     paddle.x = Math.max(0, Math.min(CANVAS_WIDTH - paddle.width, targetX));
     
+    // Ghost Paddle auto tracking ball with interpolation lag
+    if (balls.length > 0) {
+        const leadBall = balls[0];
+        const targetGhostX = leadBall.x - ghostPaddle.width / 2;
+        ghostPaddle.width = paddle.width;
+        ghostPaddle.x += (targetGhostX - ghostPaddle.x) * 0.045;
+        ghostPaddle.x = Math.max(0, Math.min(CANVAS_WIDTH - ghostPaddle.width, ghostPaddle.x));
+    }
+    
     // Paddle size animation transition
     if (paddle.width !== paddle.targetWidth) {
         const diff = paddle.targetWidth - paddle.width;
@@ -3102,6 +3159,10 @@ function updatePhysics() {
                 const isSynthWave = (state.skins && state.skins.theme && state.skins.theme.active === 1);
                 const decay = isSynthWave ? 0.14 : 0.2;
                 state.multiplier = Math.max(state.baseMultiplier || 1.0, state.multiplier - decay);
+                
+                // Increment paddle bounce tracking inside this level
+                state.paddleBouncesInLevel = (state.paddleBouncesInLevel || 0) + 1;
+                updateContractProgress('PADDLE_AIM', state.paddleBouncesInLevel);
             }
         }
         
@@ -3395,6 +3456,14 @@ function handleLevelComplete() {
     }
     state.score += stageClearBonus;
     addLogLine(`STAGE CLEAR BONUS: +${Math.round(stageClearBonus)} CR ${isMatrixRain ? '(MATRIX_RAIN +25%)' : ''}`);
+    
+    // Check Daily Contracts
+    if (state.diagnostics.coreTemp < 45) {
+        updateContractProgress('CPU_COOL', 1);
+    }
+    if (stageClearBonus >= 150) {
+        updateContractProgress('SCORE_RUN', 1);
+    }
 
     state.level++;
     
@@ -3518,6 +3587,19 @@ const SHOP_ITEMS = [
             state.multPurchases = (state.multPurchases || 0) + 1;
             state.baseMultiplier = 1.0 + state.multPurchases * 0.2;
             state.multiplier = Math.max(state.multiplier, state.baseMultiplier);
+        }
+    },
+    {
+        id: 'COOLER',
+        name: 'CRYO_COOLER // 液氮冷却器',
+        get desc() {
+            return `降低处理器最高温度 15°C (已购 ${state.coolerPurchases || 0} 次)`;
+        },
+        price: 12,
+        color: '#00d2ff',
+        buy() {
+            state.coolerPurchases = (state.coolerPurchases || 0) + 1;
+            saveCredits();
         }
     }
 ];
@@ -3938,7 +4020,7 @@ function gameVictory() {
     }, 500);
 }
 
-function startGame(chosenMode = 'STORY') {
+function startGame(chosenMode = 'STORY', startLevel = 1) {
     initAudio();
     state.gameMode = chosenMode;
     state.mode = 'PLAYING';
@@ -3969,7 +4051,7 @@ function startGame(chosenMode = 'STORY') {
     loadCredits();
     state.baseMultiplier = 1.0 + (state.multPurchases || 0) * 0.2;
     state.multiplier = state.baseMultiplier;
-    state.level = 1;
+    state.level = startLevel;
     const maxLives = (state.skins && state.skins.theme && state.skins.theme.active === 3) ? 4 : 3;
     state.lives = maxLives;
     state.shopPendingBalls = 0;
@@ -4304,6 +4386,21 @@ function draw() {
         }
     }
 
+    // Draw Ghost Paddle outline
+    if (state.mode === 'PLAYING') {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(0, 255, 255, 0.16)';
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(ghostPaddle.x, paddle.y, ghostPaddle.width, paddle.height);
+        
+        // Label above ghost
+        ctx.fillStyle = 'rgba(0, 255, 255, 0.25)';
+        ctx.font = '8px "Share Tech Mono", monospace';
+        ctx.fillText("GHOST_PARTNER", ghostPaddle.x + ghostPaddle.width/2 - 28, paddle.y - 6);
+        ctx.restore();
+    }
+
     // Draw fullscreen radial gradient flash vignette overlay
     if (state.flashVignette && state.flashVignette.alpha > 0) {
         ctx.save();
@@ -4323,6 +4420,24 @@ function draw() {
     }
     
     ctx.restore();
+
+    // Core Temperature CRT horizontal offset glitch (post-processing) - Safari WebKit compatible
+    if (state.diagnostics.coreTemp > 50 && Math.random() < 0.12) {
+        ctx.save();
+        ctx.globalAlpha = 0.25;
+        const sliceCount = Math.floor(Math.random() * 2) + 1;
+        for (let i = 0; i < sliceCount; i++) {
+            const sy = Math.random() * CANVAS_HEIGHT;
+            const sh = Math.random() * 20 + 5;
+            const offsetShift = (Math.random() - 0.5) * 15;
+            
+            ctx.fillStyle = 'rgba(0, 255, 255, 0.4)';
+            ctx.fillRect(offsetShift, sy, CANVAS_WIDTH, sh);
+            ctx.fillStyle = 'rgba(255, 0, 85, 0.3)';
+            ctx.fillRect(-offsetShift, sy + (Math.random() * 4 - 2), CANVAS_WIDTH, sh);
+        }
+        ctx.restore();
+    }
 }
 
 // Draw active background theme
@@ -4336,7 +4451,7 @@ function drawThemeBackground() {
 
 // --- ACCOUNT SYSTEM LOGICS ---
 function initAccountSystem() {
-    const lastUser = localStorage.getItem('cyberbreak_last_user');
+    const lastUser = safeLocalStorage.getItem('cyberbreak_last_user');
     if (lastUser) {
         state.currentUser = lastUser;
         document.getElementById('current-user-val').innerText = lastUser.toUpperCase();
@@ -4346,6 +4461,7 @@ function initAccountSystem() {
         // Load data for this user
         loadHighScore();
         loadCredits();
+        initDailyContracts();
     } else {
         // Force login screen
         document.getElementById('menu-overlay').classList.add('hidden');
@@ -4368,11 +4484,11 @@ function handleLogin() {
         return;
     }
     
-    const savedUsers = JSON.parse(localStorage.getItem('cyberbreak_registered_users')) || {};
+    const savedUsers = JSON.parse(safeLocalStorage.getItem('cyberbreak_registered_users')) || {};
     if (savedUsers[username] && savedUsers[username] === password) {
         // Success
         state.currentUser = username;
-        localStorage.setItem('cyberbreak_last_user', username);
+        safeLocalStorage.setItem('cyberbreak_last_user', username);
         document.getElementById('current-user-val').innerText = username.toUpperCase();
         document.getElementById('auth-overlay').classList.add('hidden');
         document.getElementById('menu-overlay').classList.remove('hidden');
@@ -4384,6 +4500,7 @@ function handleLogin() {
         // Reload all data for this specific user
         loadHighScore();
         loadCredits();
+        initDailyContracts();
         
         playSound('powerup');
         addLogLine(`Operator ${username.toUpperCase()} linked successfully.`);
@@ -4416,7 +4533,7 @@ function handleRegister() {
         return;
     }
     
-    const savedUsers = JSON.parse(localStorage.getItem('cyberbreak_registered_users')) || {};
+    const savedUsers = JSON.parse(safeLocalStorage.getItem('cyberbreak_registered_users')) || {};
     if (savedUsers[username]) {
         errorNode.innerText = "USER_EXISTS // 该用户名已被注册";
         errorNode.classList.remove('hidden');
@@ -4426,11 +4543,11 @@ function handleRegister() {
     
     // Register
     savedUsers[username] = password;
-    localStorage.setItem('cyberbreak_registered_users', JSON.stringify(savedUsers));
+    safeLocalStorage.setItem('cyberbreak_registered_users', JSON.stringify(savedUsers));
     
     // Auto-login after registration
     state.currentUser = username;
-    localStorage.setItem('cyberbreak_last_user', username);
+    safeLocalStorage.setItem('cyberbreak_last_user', username);
     document.getElementById('current-user-val').innerText = username.toUpperCase();
     document.getElementById('auth-overlay').classList.add('hidden');
     document.getElementById('menu-overlay').classList.remove('hidden');
@@ -4445,6 +4562,7 @@ function handleRegister() {
     state.endlessMaxLevel = 1;
     state.multPurchases = 0;
     state.lifePurchases = 0;
+    state.coolerPurchases = 0;
     state.skins = {
         paddle: { owned: [true, false, false, false], active: 0 },
         ball: { owned: [true, false, false, false], active: 0 },
@@ -4463,6 +4581,7 @@ function handleRegister() {
     // Reload UI states
     loadHighScore();
     loadCredits();
+    initDailyContracts();
     
     playSound('powerup');
     addLogLine(`New Operator registered & loaded: ${username.toUpperCase()}`);
@@ -4476,7 +4595,7 @@ function handleLogout() {
     }
     
     state.currentUser = null;
-    localStorage.removeItem('cyberbreak_last_user');
+    safeLocalStorage.removeItem('cyberbreak_last_user');
     document.getElementById('current-user-val').innerText = 'UNAUTHORIZED';
     document.getElementById('menu-overlay').classList.add('hidden');
     document.getElementById('auth-overlay').classList.remove('hidden');
@@ -4532,7 +4651,7 @@ function openLevelSelect() {
                 // Clear any existing saved session so it doesn't conflict
                 clearEndlessState();
                 
-                startGame('ENDLESS');
+                startGame('ENDLESS', lvl);
             });
             
             grid.appendChild(btn);
@@ -4546,9 +4665,32 @@ function openLevelSelect() {
 function setupInputListeners() {
     // Keyboard inputs
     window.addEventListener('keydown', e => {
+        // Backtick toggles terminal input shell
+        if (e.key === '`') {
+            e.preventDefault();
+            const termOverlay = document.getElementById('terminal-overlay');
+            const termInput = document.getElementById('terminal-input');
+            if (termOverlay && termInput) {
+                const isHidden = termOverlay.classList.toggle('hidden');
+                if (!isHidden) {
+                    termInput.focus();
+                    termInput.value = '';
+                } else {
+                    termInput.blur();
+                }
+            }
+            return;
+        }
+        
         if (e.target.tagName === 'INPUT') {
             if (e.key === 'Enter') {
-                handleLogin();
+                if (e.target.id === 'terminal-input') {
+                    executeTerminalCommand(e.target.value);
+                    e.target.value = '';
+                    document.getElementById('terminal-overlay').classList.add('hidden');
+                } else {
+                    handleLogin();
+                }
             }
             return;
         }
@@ -4637,6 +4779,22 @@ function setupInputListeners() {
     document.getElementById('auth-login-btn').addEventListener('click', handleLogin);
     document.getElementById('auth-register-btn').addEventListener('click', handleRegister);
     document.getElementById('logout-btn').addEventListener('click', handleLogout);
+    
+    document.getElementById('radio-prev-btn').addEventListener('click', () => {
+        initAudio();
+        state.currentRadioTrack = (state.currentRadioTrack - 1 + RADIO_TRACKS.length) % RADIO_TRACKS.length;
+        document.getElementById('radio-track-title').innerText = RADIO_TRACKS[state.currentRadioTrack].name;
+        startBgMusic();
+        addLogLine(`RADIO: track set to ${RADIO_TRACKS[state.currentRadioTrack].name}`);
+    });
+    
+    document.getElementById('radio-next-btn').addEventListener('click', () => {
+        initAudio();
+        state.currentRadioTrack = (state.currentRadioTrack + 1) % RADIO_TRACKS.length;
+        document.getElementById('radio-track-title').innerText = RADIO_TRACKS[state.currentRadioTrack].name;
+        startBgMusic();
+        addLogLine(`RADIO: track set to ${RADIO_TRACKS[state.currentRadioTrack].name}`);
+    });
     
     document.getElementById('start-story-btn').addEventListener('click', () => startGame('STORY'));
     document.getElementById('start-endless-btn').addEventListener('click', () => startGame('ENDLESS'));
@@ -4798,6 +4956,112 @@ function renderAchievementsList(container) {
     });
 }
 
+// --- CYBER CONTRACTS SYSTEM ---
+const DAILY_CONTRACTS_CONFIG = [
+    {
+        id: 'CPU_COOL',
+        name: 'CPU_COOL // 热阻平抑',
+        desc: '以核心温度低于 45°C 的状态通关一次数据网关节点',
+        target: 1,
+        credits: 40
+    },
+    {
+        id: 'SCORE_RUN',
+        name: 'SCORE_RUN // 数据跃迁',
+        desc: '单关结算的数据解密积分加成达到 150 CR 或以上',
+        target: 1,
+        credits: 50
+    },
+    {
+        id: 'PADDLE_AIM',
+        name: 'PADDLE_AIM // 完美弹射',
+        desc: '在任意单一关卡中，利用挡板折射小球达 15 次',
+        target: 15,
+        credits: 60
+    }
+];
+
+function initDailyContracts() {
+    const saved = storage.get('cyberbreak_daily_contracts');
+    if (saved) {
+        try {
+            state.contracts = JSON.parse(saved);
+            if (state.contracts.length === DAILY_CONTRACTS_CONFIG.length) {
+                renderContractsHUD();
+                return;
+            }
+        } catch (e) {
+            console.error("Failed to parse daily contracts", e);
+        }
+    }
+    
+    state.contracts = DAILY_CONTRACTS_CONFIG.map(c => ({
+        id: c.id,
+        name: c.name,
+        desc: c.desc,
+        progress: 0,
+        target: c.target,
+        completed: false,
+        credits: c.credits
+    }));
+    saveDailyContracts();
+    renderContractsHUD();
+}
+
+function saveDailyContracts() {
+    storage.set('cyberbreak_daily_contracts', JSON.stringify(state.contracts));
+}
+
+function renderContractsHUD() {
+    const listNode = document.getElementById('contracts-list');
+    if (!listNode) return;
+    listNode.innerHTML = '';
+    
+    state.contracts.forEach(c => {
+        const item = document.createElement('li');
+        item.style.paddingBottom = '4px';
+        item.style.borderBottom = '1px dashed rgba(0, 255, 255, 0.15)';
+        
+        const nameDiv = document.createElement('div');
+        nameDiv.style.fontWeight = 'bold';
+        nameDiv.style.color = c.completed ? '#05ff50' : 'var(--neon-cyan)';
+        nameDiv.innerText = `${c.name} ${c.completed ? ' [OK]' : ''}`;
+        
+        const descDiv = document.createElement('div');
+        descDiv.style.fontSize = '9px';
+        descDiv.style.color = 'rgba(255, 255, 255, 0.5)';
+        descDiv.innerText = `${c.desc} (${c.progress}/${c.target}) [+${c.credits} CR]`;
+        
+        item.appendChild(nameDiv);
+        item.appendChild(descDiv);
+        listNode.appendChild(item);
+    });
+}
+
+function updateContractProgress(id, value) {
+    if (!state.contracts || state.contracts.length === 0) return;
+    const contract = state.contracts.find(c => c.id === id);
+    if (!contract || contract.completed) return;
+    
+    if (id === 'PADDLE_AIM') {
+        contract.progress = Math.min(contract.target, value);
+    } else {
+        contract.progress = Math.min(contract.target, contract.progress + value);
+    }
+    
+    if (contract.progress >= contract.target) {
+        contract.completed = true;
+        state.score += contract.credits;
+        saveCredits();
+        
+        triggerGlitchAlert(`CONTRACT_COMPLETE // 契约达成: [${contract.name.split(' // ')[1]}] +${contract.credits} CR`);
+        playSound('powerup');
+        addLogLine(`SYS_SUCCESS: Contract completed -> ${contract.id}. Reward credited.`);
+    }
+    saveDailyContracts();
+    renderContractsHUD();
+}
+
 // Leaderboard default data & helpers
 const DEFAULT_LEADERBOARD = [
     { name: "CORP_SEC", score: 50000 },
@@ -4810,12 +5074,12 @@ const DEFAULT_LEADERBOARD = [
 function loadLeaderboard() {
     let board = [];
     try {
-        const cached = localStorage.getItem('cyberbreak_leaderboard');
+        const cached = safeLocalStorage.getItem('cyberbreak_leaderboard');
         if (cached) {
             board = JSON.parse(cached);
         } else {
             board = DEFAULT_LEADERBOARD;
-            localStorage.setItem('cyberbreak_leaderboard', JSON.stringify(board));
+            safeLocalStorage.setItem('cyberbreak_leaderboard', JSON.stringify(board));
         }
     } catch (e) {
         board = DEFAULT_LEADERBOARD;
@@ -4843,7 +5107,7 @@ function loadLeaderboard() {
 function checkAndAddLeaderboard(scoreVal) {
     let board = [];
     try {
-        const cached = localStorage.getItem('cyberbreak_leaderboard');
+        const cached = safeLocalStorage.getItem('cyberbreak_leaderboard');
         if (cached) {
             board = JSON.parse(cached);
         } else {
@@ -4871,7 +5135,7 @@ function checkAndAddLeaderboard(scoreVal) {
         
         // Keep top 5
         board = board.slice(0, 5);
-        localStorage.setItem('cyberbreak_leaderboard', JSON.stringify(board));
+        safeLocalStorage.setItem('cyberbreak_leaderboard', JSON.stringify(board));
         loadLeaderboard();
         addLogLine("Leaderboard record synced: " + cleanName + " - " + scoreInt);
     }
@@ -4899,14 +5163,18 @@ function loadCredits() {
     
     state.multPurchases = parseInt(storage.get('cyberbreak_mult_purchases')) || 0;
     state.lifePurchases = parseInt(storage.get('cyberbreak_life_purchases')) || 0;
+    state.coolerPurchases = parseInt(storage.get('cyberbreak_cooler_purchases')) || 0;
     
     try {
         const skinsCached = storage.get('cyberbreak_skins');
         if (skinsCached) {
             state.skins = JSON.parse(skinsCached);
-            if (!state.skins.theme) {
-                state.skins.theme = { owned: [true, false, false, false], active: 0 };
-            }
+            const categories = ['paddle', 'ball', 'brick', 'theme'];
+            categories.forEach(cat => {
+                if (!state.skins[cat]) {
+                    state.skins[cat] = { owned: [true, false, false, false], active: 0 };
+                }
+            });
         } else {
             state.skins = {
                 paddle: { owned: [true, false, false, false], active: 0 },
@@ -4931,6 +5199,7 @@ function saveCredits() {
     storage.set('cyberbreak_credits', state.score.toFixed(2));
     storage.set('cyberbreak_mult_purchases', state.multPurchases || 0);
     storage.set('cyberbreak_life_purchases', state.lifePurchases || 0);
+    storage.set('cyberbreak_cooler_purchases', state.coolerPurchases || 0);
     storage.set('cyberbreak_skins', JSON.stringify(state.skins));
 }
 
@@ -4950,6 +5219,7 @@ function resetEndlessProgress() {
         // Reset purchase counters
         state.multPurchases = 0;
         state.lifePurchases = 0;
+        state.coolerPurchases = 0;
         
         // Reset skins
         state.skins = {
@@ -5085,6 +5355,123 @@ function createBrickObject(bData) {
     return constructBrick(bData.c, bData.r, bData.type, bData.hp, bData.maxHp, bData.color, bData.x, bData.y, bData.width, bData.height);
 }
 
+// --- HACKER SHELL CMD INTERPRETER ---
+function executeTerminalCommand(cmdStr) {
+    const parts = cmdStr.trim().split(/\s+/);
+    const command = parts[0].toLowerCase();
+    
+    addLogLine(`> ${cmdStr}`);
+    
+    switch (command) {
+        case '/give_credits': {
+            const val = parseFloat(parts[1]) || 100;
+            state.score += val;
+            saveCredits();
+            triggerGlitchAlert(`INJECT_CREDITS // 注入积分: +${val} CR`);
+            playSound('powerup');
+            addLogLine(`SYS_ALERT: Credits override applied. Current: ${state.score} CR.`);
+            break;
+        }
+        case '/slow_motion': {
+            activeMods['SLOW'] = 400;
+            triggerGlitchAlert("TIME_DILATION_INJECTED // 强制注入时间流速减缓");
+            playSound('powerup');
+            addLogLine("SYS_ALERT: Time dilation injector activated (400 frames).");
+            break;
+        }
+        case '/inject_shield': {
+            activeMods['SHIELD'] = 1;
+            state.diagnostics.shieldActive = true;
+            triggerGlitchAlert("NET_SHIELD_INJECTED // 强制注入安全网盾");
+            playSound('powerup');
+            addLogLine("SYS_ALERT: NET_SHIELD forced into kernel runtime.");
+            break;
+        }
+        case '/unlock_all': {
+            state.skins.paddle.owned = [true, true, true, true];
+            state.skins.ball.owned = [true, true, true, true];
+            state.skins.brick.owned = [true, true, true, true];
+            state.skins.theme.owned = [true, true, true, true];
+            saveCredits();
+            
+            // Unlock all achievements
+            ACHIEVEMENTS_CONFIG.forEach(ach => {
+                unlockAchievement(ach.id);
+            });
+            
+            triggerGlitchAlert("SYS_UNLOCKED // 所有成就与皮肤已解锁");
+            playSound('powerup');
+            addLogLine("SYS_ALERT: Fully unlocked skins database & achievements.");
+            break;
+        }
+        case '/bypass_level': {
+            triggerGlitchAlert("BYPASS_LEVEL // 绕过当前关卡安全协议");
+            playSound('powerup');
+            addLogLine("SYS_ALERT: Initiated level override. Safety filters bypassed.");
+            handleLevelComplete();
+            break;
+        }
+        default:
+            triggerGlitchAlert("CMD_ERR // 无效的代码指令");
+            playSound('lost');
+            addLogLine(`SYS_ERR: Command '${command}' unrecognized by shell kernel.`);
+            break;
+    }
+}
+
+let visualizerCanvas, visualizerCtx;
+function drawAudioVisualizer() {
+    if (!visualizerCanvas) {
+        visualizerCanvas = document.getElementById('visualizer-canvas');
+        if (visualizerCanvas) visualizerCtx = visualizerCanvas.getContext('2d');
+    }
+    if (!visualizerCanvas || !visualizerCtx) return;
+    
+    const w = visualizerCanvas.width;
+    const h = visualizerCanvas.height;
+    
+    // Clear visualizer background
+    visualizerCtx.fillStyle = 'rgba(5, 5, 10, 0.45)';
+    visualizerCtx.fillRect(0, 0, w, h);
+    
+    if (analyser && audioCtx && state.audioEnabled) {
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        analyser.getByteFrequencyData(dataArray);
+        
+        const barWidth = (w / bufferLength) * 1.5;
+        let barHeight;
+        let x = 0;
+        
+        for (let i = 0; i < bufferLength; i++) {
+            barHeight = (dataArray[i] / 255) * h * 0.95;
+            
+            // Neon cyan gradient
+            const grad = visualizerCtx.createLinearGradient(0, h, 0, h - barHeight);
+            grad.addColorStop(0, 'rgba(0, 255, 255, 0.1)');
+            grad.addColorStop(1, 'rgba(0, 255, 255, 0.8)');
+            
+            visualizerCtx.fillStyle = grad;
+            visualizerCtx.fillRect(x, h - barHeight, barWidth - 1, barHeight);
+            
+            // Top point glow
+            if (barHeight > 3) {
+                visualizerCtx.fillStyle = '#00ffff';
+                visualizerCtx.fillRect(x, h - barHeight - 1, barWidth - 1, 1);
+            }
+            
+            x += barWidth;
+        }
+    } else {
+        // Flatline idle line
+        visualizerCtx.strokeStyle = 'rgba(0, 255, 255, 0.15)';
+        visualizerCtx.beginPath();
+        visualizerCtx.moveTo(0, h / 2);
+        visualizerCtx.lineTo(w, h / 2);
+        visualizerCtx.stroke();
+    }
+}
+
 // Game Loop standard requestAnimationFrame
 let lastTime = 0;
 function gameLoop(timestamp) {
@@ -5094,6 +5481,7 @@ function gameLoop(timestamp) {
     
     draw();
     updateHUD();
+    drawAudioVisualizer();
     
     requestAnimationFrame(gameLoop);
 }
