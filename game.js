@@ -44,6 +44,8 @@ const state = {
     paddleBouncesInLevel: 0,
     botScore: 0,
     botTime: 0,
+    matchScore: 0,
+    vsScore: 0,
     skins: {
         paddle: {
             owned: [true, false, false, false],
@@ -112,6 +114,28 @@ const storage = {
         safeLocalStorage.removeItem(getUserKey(key));
     }
 };
+
+// --- VS BATTLE ECONOMY & SCORE FUNCTIONS ---
+function loadVsScore() {
+    const cached = storage.get('cyberbreak_vs_score');
+    if (cached) {
+        state.vsScore = parseInt(cached) || 0;
+    } else {
+        state.vsScore = 0;
+    }
+}
+
+function saveVsScore() {
+    storage.set('cyberbreak_vs_score', state.vsScore || 0);
+}
+
+function increaseScore(amount) {
+    if (state.gameMode === 'SCORE_BATTLE' || state.gameMode === 'PONG_BATTLE') {
+        state.matchScore = (state.matchScore || 0) + amount;
+    } else {
+        state.score = (state.score || 0) + amount;
+    }
+}
 
 // Skins Configuration
 const SKINS_CONFIG = {
@@ -2138,7 +2162,7 @@ function constructBrick(c, r, brickType, hp, maxHp, color, x = null, y = null, w
             if (this.type === 4) baseVal = 2.5;
             if (this.type === 6) baseVal = 5.0; // Higher reward for core
             
-            state.score += baseVal * state.multiplier;
+            increaseScore(baseVal * state.multiplier);
             const isSynthWave = (state.skins && state.skins.theme && state.skins.theme.active === 1);
             state.multiplier += isSynthWave ? 0.15 : 0.1;
             
@@ -2326,7 +2350,7 @@ function generateBricks() {
                     }
                 },
                 destroy() {
-                    state.score += 5.0 * state.multiplier;
+                    increaseScore(5.0 * state.multiplier);
                     state.multiplier += 0.15;
                     spawnParticles(this.x + this.width/2, this.y + this.height/2, this.color, 12);
                     spawnShockwave(this.x + this.width/2, this.y + this.height/2, this.color);
@@ -2477,7 +2501,7 @@ function generateBricks() {
                     if (this.type === 4) baseVal = 2.5;
                     if (this.type === 6) baseVal = 5.0; // Higher reward for core
                     
-                    state.score += baseVal * state.multiplier;
+                    increaseScore(baseVal * state.multiplier);
                     const isSynthWave = (state.skins && state.skins.theme && state.skins.theme.active === 1);
                     state.multiplier += isSynthWave ? 0.15 : 0.1;
                     
@@ -2744,7 +2768,7 @@ function applyPowerup(pType, pConf) {
     
     // Matrix rain credit boost: +10 CR
     if (state.skins && state.skins.theme && state.skins.theme.active === 2) {
-        state.score += 10;
+        increaseScore(10);
         addLogLine("THEME_BONUS: MATRIX_RAIN DATA HARVEST (+10 CR)");
         saveCredits();
         updateHUD();
@@ -3196,7 +3220,7 @@ function updatePhysics() {
         // Check fall off top (Pong Battle only)
         if (state.gameMode === 'PONG_BATTLE' && b.y + b.radius < 0) {
             balls.splice(i, 1);
-            state.score++;
+            increaseScore(1);
             state.botLives--;
             updateHUD();
             
@@ -4159,8 +4183,8 @@ function triggerBattleComplete(playerWon, reason) {
     
     // Give credits reward
     const reward = playerWon ? 80 : 20;
-    state.score = (state.score || 0) + reward;
-    saveCredits();
+    state.vsScore = (state.vsScore || 0) + reward;
+    saveVsScore();
     
     // Reset highscore in UI
     loadHighScore();
@@ -4176,21 +4200,23 @@ function triggerBattleComplete(playerWon, reason) {
     
     const subtitleNode = overlay.querySelector('.subtitle');
     if (subtitleNode) {
-        subtitleNode.innerText = playerWon ? `AI BYPASSED // 成功击败AI核心 (+${reward} CR)` : `DEFEAT BY AI // 被AI核心击败 (+${reward} CR)`;
+        subtitleNode.innerText = playerWon ? `AI BYPASSED // 成功击败AI核心 (+${reward} VS_CR)` : `DEFEAT BY AI // 被AI核心击败 (+${reward} VS_CR)`;
     }
     
     const summaryNode = overlay.querySelector('.stats-summary');
     if (summaryNode) {
         if (state.gameMode === 'SCORE_BATTLE') {
             summaryNode.innerHTML = `
-                <p>PLAYER SCORE: <span class="neon-cyan">${Math.floor(state.score - reward)}</span> (TIME: ${state.playerTime.toFixed(1)}s)</p>
+                <p>PLAYER SCORE: <span class="neon-cyan">${Math.floor(state.matchScore || 0)}</span> (TIME: ${state.playerTime.toFixed(1)}s)</p>
                 <p>BOT SCORE: <span class="neon-yellow">${Math.floor(state.botScore)}</span> (TIME: ${state.botTime.toFixed(1)}s)</p>
+                <p>VS_CREDITS // 对战积分: <span class="neon-green">${state.vsScore} CR</span> (+${reward} CR)</p>
                 <p>REASON: ${reason}</p>
             `;
         } else {
             summaryNode.innerHTML = `
-                <p>PLAYER PONG SCORE: <span class="neon-cyan">${state.score - reward}</span></p>
+                <p>PLAYER PONG SCORE: <span class="neon-cyan">${state.matchScore || 0}</span></p>
                 <p>BOT PONG SCORE: <span class="neon-yellow">${state.botScore}</span></p>
+                <p>VS_CREDITS // 对战积分: <span class="neon-green">${state.vsScore} CR</span> (+${reward} CR)</p>
                 <p>REASON: ${reason}</p>
             `;
         }
@@ -4689,6 +4715,7 @@ function initAccountSystem() {
         // Load data for this user
         loadHighScore();
         loadCredits();
+        loadVsScore();
         initDailyContracts();
     } else {
         // Force login screen
@@ -4728,6 +4755,7 @@ function handleLogin() {
         // Reload all data for this specific user
         loadHighScore();
         loadCredits();
+        loadVsScore();
         initDailyContracts();
         
         playSound('powerup');
@@ -4787,6 +4815,7 @@ function handleRegister() {
     // Reset/Clear fresh profiles in state and save
     state.score = 0;
     state.highScore = 0;
+    state.vsScore = 0;
     state.endlessMaxLevel = 1;
     state.multPurchases = 0;
     state.lifePurchases = 0;
@@ -4809,6 +4838,7 @@ function handleRegister() {
     // Reload UI states
     loadHighScore();
     loadCredits();
+    loadVsScore();
     initDailyContracts();
     
     playSound('powerup');
@@ -4818,6 +4848,7 @@ function handleRegister() {
 function handleLogout() {
     // Save state before logout
     saveCredits();
+    saveVsScore();
     if (state.gameMode === 'ENDLESS' && state.mode === 'PLAYING') {
         saveEndlessState();
     }
@@ -5608,8 +5639,10 @@ function executeTerminalCommand(cmdStr) {
     switch (command) {
         case '/give_credits': {
             const val = parseFloat(parts[1]) || 100;
-            state.score += val;
-            saveCredits();
+            increaseScore(val);
+            if (state.gameMode !== 'SCORE_BATTLE' && state.gameMode !== 'PONG_BATTLE') {
+                saveCredits();
+            }
             triggerGlitchAlert(`INJECT_CREDITS // 注入积分: +${val} CR`);
             playSound('powerup');
             addLogLine(`SYS_ALERT: Credits override applied. Current: ${state.score} CR.`);
