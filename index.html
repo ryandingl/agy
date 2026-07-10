@@ -161,27 +161,39 @@
                     <div class="glitch-title-large" data-text="CYBER_BREAK">CYBER_BREAK</div>
                     <p class="subtitle neon-cyan">NEURAL INTERFACE INITIALIZED</p>
                     <div class="menu-options">
-                        <button id="start-story-btn" class="cyber-btn cyan-theme">
-                            <span class="btn-slice"></span>
-                            <span class="btn-text">STORY_LINK() // 关卡模式</span>
-                        </button>
-                        <div class="menu-row">
-                            <button id="start-endless-btn" class="cyber-btn yellow-theme" style="flex: 1;">
+                        <div class="mode-group">
+                            <button id="start-story-btn" class="cyber-btn cyan-theme">
                                 <span class="btn-slice"></span>
-                                <span class="btn-text">INFINITE_LINK() // 无尽模式</span>
+                                <span class="btn-text">STORY_LINK() // 关卡模式</span>
                             </button>
-                            <button id="reset-endless-btn" class="cyber-btn magenta-theme square-btn" title="RESET_GRID() // 重置无尽">
-                                <span class="btn-slice"></span>
-                                <span class="btn-text">⟲</span>
-                            </button>
+                            <div class="mode-desc cyan-theme">[DECRYPT STORY PROTOCOLS // 关卡破解，解锁黑市升级]</div>
                         </div>
-                        <button id="menu-shop-btn" class="cyber-btn green-theme">
+                        
+                        <div class="mode-group">
+                            <div class="menu-row">
+                                <button id="start-endless-btn" class="cyber-btn yellow-theme" style="flex: 1;">
+                                    <span class="btn-slice"></span>
+                                    <span class="btn-text">INFINITE_LINK() // 无尽模式</span>
+                                </button>
+                                <button id="reset-endless-btn" class="cyber-btn magenta-theme square-btn" title="RESET_GRID() // 重置无尽">
+                                    <span class="btn-slice"></span>
+                                    <span class="btn-text">⟲</span>
+                                </button>
+                            </div>
+                            <div class="mode-desc yellow-theme">[ENDLESS DATA RUN // 挑战加密流，追求极致核心超频]</div>
+                        </div>
+                        
+                        <div class="mode-group">
+                            <button id="menu-vs-bot-btn" class="cyber-btn magenta-theme">
+                                <span class="btn-slice"></span>
+                                <span class="btn-text">VS_BOT() // 人机对战</span>
+                            </button>
+                            <div class="mode-desc magenta-theme">[SIMULATED AI DUEL // 对抗系统核心 AI 意识，完成双重对决]</div>
+                        </div>
+
+                        <button id="menu-shop-btn" class="cyber-btn green-theme" style="margin-top: 5px;">
                             <span class="btn-slice"></span>
                             <span class="btn-text">BLACK_MARKET() // 黑市商城</span>
-                        </button>
-                        <button id="menu-vs-bot-btn" class="cyber-btn magenta-theme">
-                            <span class="btn-slice"></span>
-                            <span class="btn-text">VS_BOT() // 人机对战</span>
                         </button>
                         <button id="menu-select-btn" class="cyber-btn cyan-theme">
                             <span class="btn-slice"></span>
@@ -226,14 +238,22 @@
                     <p class="subtitle neon-cyan">SELECT DUEL PROTOCOL // 选择人机对战模式</p>
                     
                     <div class="menu-options" style="margin-top: 15px; width: 100%; display: flex; flex-direction: column; gap: 12px;">
-                        <button id="vs-score-btn" class="cyber-btn yellow-theme" style="width: 100%;">
-                            <span class="btn-slice"></span>
-                            <span class="btn-text">SCORE_BATTLE // 积分争夺赛 (同场数据对决)</span>
-                        </button>
-                        <button id="vs-pong-btn" class="cyber-btn magenta-theme" style="width: 100%;">
-                            <span class="btn-slice"></span>
-                            <span class="btn-text">PONG_BATTLE // 镜像弹球赛 (上下挡板反弹对抗)</span>
-                        </button>
+                        <div class="mode-group">
+                            <button id="vs-score-btn" class="cyber-btn yellow-theme" style="width: 100%;">
+                                <span class="btn-slice"></span>
+                                <span class="btn-text">SCORE_BATTLE // 积分争夺赛</span>
+                            </button>
+                            <div class="mode-desc yellow-theme">[SPEEDRUN DATA FIELDS // 同场竞速比拼砖块消除，以通关时速决胜]</div>
+                        </div>
+                        
+                        <div class="mode-group">
+                            <button id="vs-pong-btn" class="cyber-btn magenta-theme" style="width: 100%;">
+                                <span class="btn-slice"></span>
+                                <span class="btn-text">PONG_BATTLE // 镜像弹球赛</span>
+                            </button>
+                            <div class="mode-desc magenta-theme">[PONG DEFLECTION FIELDS // 镜像挡板接球对攻，漏球者损耗生命值]</div>
+                        </div>
+                        
                         <button id="vs-bot-back-btn" class="cyber-btn cyan-theme" style="width: 100%; margin-top: 10px;">
                             <span class="btn-slice"></span>
                             <span class="btn-text">RETURN() // 返回主单</span>

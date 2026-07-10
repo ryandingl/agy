@@ -452,6 +452,37 @@ h1.glitch::after {
     width: 300px;
 }
 
+.mode-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+}
+
+.mode-desc {
+    font-size: 10px;
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 0.5px;
+    text-align: center;
+    opacity: 0.8;
+    margin-top: 1px;
+}
+
+.mode-desc.cyan-theme {
+    color: var(--neon-cyan);
+    text-shadow: 0 0 4px rgba(0, 240, 255, 0.4);
+}
+
+.mode-desc.yellow-theme {
+    color: var(--neon-yellow);
+    text-shadow: 0 0 4px rgba(255, 183, 0, 0.4);
+}
+
+.mode-desc.magenta-theme {
+    color: var(--neon-magenta);
+    text-shadow: 0 0 4px rgba(255, 0, 85, 0.4);
+}
+
 .high-score-display {
     font-size: 12px;
     letter-spacing: 2px;
