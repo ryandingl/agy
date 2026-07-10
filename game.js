@@ -1742,7 +1742,8 @@ function triggerScreenShake(amount) {
 // Update DOM elements for stats
 function updateHUD() {
     state.multiplier = Math.min(9.9, state.multiplier);
-    document.getElementById('score-val').innerText = String(Math.floor(state.score)).padStart(6, '0');
+    const displayScore = (state.gameMode === 'SCORE_BATTLE' || state.gameMode === 'PONG_BATTLE') ? (state.matchScore || 0) : state.score;
+    document.getElementById('score-val').innerText = String(Math.floor(displayScore)).padStart(6, '0');
     document.getElementById('mult-val').innerText = `x${state.multiplier.toFixed(1)}`;
     document.getElementById('level-val').innerText = String(state.level).padStart(2, '0');
     
@@ -1750,6 +1751,10 @@ function updateHUD() {
     const vsBotRows = document.querySelectorAll('.vs-bot-only');
     if (state.gameMode === 'SCORE_BATTLE' || state.gameMode === 'PONG_BATTLE') {
         vsBotRows.forEach(el => el.classList.remove('hidden'));
+        
+        const playerVsScoreNode = document.getElementById('player-vs-score-val');
+        if (playerVsScoreNode) playerVsScoreNode.innerText = String(Math.floor(state.matchScore || 0)).padStart(6, '0');
+        
         const botScoreNode = document.getElementById('bot-score-val');
         if (botScoreNode) botScoreNode.innerText = String(Math.floor(state.botScore)).padStart(6, '0');
     } else {
@@ -2433,7 +2438,7 @@ function generateBricks() {
     state.boss = null;
     
     let layout;
-    if (state.gameMode === 'ENDLESS') {
+    if (state.gameMode === 'ENDLESS' || state.gameMode === 'SCORE_BATTLE') {
         const rows = Math.min(7, 4 + Math.floor((state.level - 1) / 3)); // 4 to 7 rows
         layout = createRandomSymmetricLayout(rows, BRICK_COLS);
     } else {
