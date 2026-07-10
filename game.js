@@ -1211,7 +1211,7 @@ let mouseX = CANVAS_WIDTH / 2;
 // Entities
 let paddle;
 let ghostPaddle = { x: CANVAS_WIDTH / 2, width: 120 };
-let aiPaddle = { x: CANVAS_WIDTH / 2, y: 35, width: 120, height: 14, speed: 6.5 };
+let aiPaddle = { x: CANVAS_WIDTH / 2, y: 35, width: 120, height: 14, speed: 4.8 };
 let balls = [];
 let bricks = [];
 let powerups = [];
@@ -3154,8 +3154,9 @@ function updatePhysics() {
             const leadBall = balls[0];
             const targetAiX = leadBall.x - aiPaddle.width / 2;
             const diffX = targetAiX - aiPaddle.x;
-            const step = Math.min(aiPaddle.speed, Math.abs(diffX));
-            aiPaddle.x += Math.sign(diffX) * step;
+            const desiredMove = diffX * 0.08;
+            const step = Math.min(aiPaddle.speed, Math.abs(desiredMove));
+            aiPaddle.x += Math.sign(desiredMove) * step;
             aiPaddle.x = Math.max(0, Math.min(CANVAS_WIDTH - aiPaddle.width, aiPaddle.x));
             aiPaddle.width = paddle.width; // match width
         }
@@ -4303,7 +4304,7 @@ function startGame(chosenMode = 'STORY', startLevel = 1) {
         aiPaddle.y = 35;
         aiPaddle.width = 120;
         aiPaddle.height = 14;
-        aiPaddle.speed = 6.5;
+        aiPaddle.speed = 4.8;
     } else {
         // Otherwise initialize a fresh game
         loadCredits();
