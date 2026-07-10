@@ -1124,4 +1124,32 @@ h1.glitch::after {
     margin-top: 5px;
 }
 
+/* Responsive Scaling for Lower Viewport Heights */
+@media (max-height: 800px) {
+    .game-container {
+        gap: 8px !important;
+        padding: 5px !important;
+    }
+    .game-layout {
+        height: 500px !important;
+    }
+    .hud-header {
+        padding: 6px 15px !important;
+    }
+    .status-box {
+        padding: 10px !important;
+    }
+    .right-panel .status-box {
+        padding: 5px 8px !important;
+    }
+}
+@media (max-height: 700px) {
+    .game-layout {
+        height: 440px !important;
+    }
+    .hud-header {
+        padding: 4px 10px !important;
+    }
+}
+
 
