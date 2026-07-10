@@ -3523,7 +3523,7 @@ function updatePhysics() {
         }
     }
     const remainingBricks = bricks.filter(b => b.hp > 0 && b.type !== 5);
-    if (remainingBricks.length === 0) {
+    if (state.gameMode !== 'PONG_BATTLE' && remainingBricks.length === 0) {
         handleLevelComplete();
     }
 }
@@ -4274,6 +4274,7 @@ function startGame(chosenMode = 'STORY', startLevel = 1) {
         state.botScore = 0;
         state.botTime = 0;
         state.playerTime = 0;
+        state.matchScore = 0;
         state.baseMultiplier = 1.0 + (state.multPurchases || 0) * 0.2;
         state.multiplier = state.baseMultiplier;
         state.level = 1;
@@ -4284,6 +4285,7 @@ function startGame(chosenMode = 'STORY', startLevel = 1) {
         state.botScore = 0;
         state.botLives = 3;
         state.score = 0;
+        state.matchScore = 0;
         state.level = 1;
         state.lives = 3;
         state.playerTime = 0;
