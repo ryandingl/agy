@@ -16,6 +16,8 @@
         errorDiv.style.zIndex = '99999';
         errorDiv.style.border = '2px solid #ff0055';
         errorDiv.style.borderRadius = '5px';
+        errorDiv.style.userSelect = 'text';
+        errorDiv.style.webkitUserSelect = 'text';
         errorDiv.innerHTML = '<strong>RUNTIME CRASH ENCOUNTERED:</strong><br>' + 
                               message + '<br>Source: ' + source + ' (Line: ' + lineno + ')';
         document.body.appendChild(errorDiv);
