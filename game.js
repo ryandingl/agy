@@ -1197,6 +1197,7 @@ let audioCtx = null;
 let musicTimeout = null;
 let musicStep = 0;
 let masterGain = null;
+let analyser = null;
 
 // Bricks settings
 const BRICK_COLS = 10;
