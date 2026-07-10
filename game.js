@@ -1211,7 +1211,7 @@ let mouseX = CANVAS_WIDTH / 2;
 // Entities
 let paddle;
 let ghostPaddle = { x: CANVAS_WIDTH / 2, width: 120 };
-let aiPaddle = { x: CANVAS_WIDTH / 2, width: 120, height: 14, speed: 6.5 };
+let aiPaddle = { x: CANVAS_WIDTH / 2, y: 35, width: 120, height: 14, speed: 6.5 };
 let balls = [];
 let bricks = [];
 let powerups = [];
@@ -4293,6 +4293,12 @@ function startGame(chosenMode = 'STORY', startLevel = 1) {
         state.multiplier = 1.0;
         state.shopPendingBalls = 0;
         activeMods = {};
+        
+        aiPaddle.x = CANVAS_WIDTH / 2 - 60;
+        aiPaddle.y = 35;
+        aiPaddle.width = 120;
+        aiPaddle.height = 14;
+        aiPaddle.speed = 6.5;
     } else {
         // Otherwise initialize a fresh game
         loadCredits();
