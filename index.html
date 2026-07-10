@@ -84,7 +84,43 @@
                 <canvas id="game-canvas" width="800" height="600"></canvas>
 
                 <!-- UI Overlays inside Canvas Area -->
+                <!-- Auth / Account Overlay -->
+                <div id="auth-overlay" class="overlay-panel hidden">
+                    <div class="glitch-title-large" data-text="AUTH_GATEWAY">AUTH_GATEWAY</div>
+                    <p class="subtitle neon-cyan">NEURAL NETWORK ACCOUNT VERIFICATION // 神经网关验证</p>
+                    
+                    <div class="auth-form">
+                        <div class="input-group">
+                            <label for="auth-username">OPERATOR_ID // 用户名</label>
+                            <input type="text" id="auth-username" autocomplete="off" placeholder="Enter Operator ID...">
+                        </div>
+                        <div class="input-group">
+                            <label for="auth-password">SECURE_PASS // 密码</label>
+                            <input type="password" id="auth-password" placeholder="Enter Secure Password...">
+                        </div>
+                        <div id="auth-error-msg" class="auth-error neon-magenta hidden">INVALID_SIGNATURE // 验证失败</div>
+                    </div>
+                    
+                    <div class="menu-options" style="margin-top: 25px; width: 100%;">
+                        <div class="menu-row">
+                            <button id="auth-login-btn" class="cyber-btn cyan-theme" style="flex: 1;">
+                                <span class="btn-slice"></span>
+                                <span class="btn-text">SIGN_IN() // 登录</span>
+                            </button>
+                            <button id="auth-register-btn" class="cyber-btn green-theme" style="flex: 1;">
+                                <span class="btn-slice"></span>
+                                <span class="btn-text">REGISTER() // 注册</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="menu-overlay" class="overlay-panel">
+                    <div class="user-profile-header">
+                        <span class="profile-label">OPERATOR:</span>
+                        <span id="current-user-val" class="neon-green">UNAUTHORIZED</span>
+                        <button id="logout-btn" class="logout-link">// LOGOUT()</button>
+                    </div>
                     <div class="glitch-title-large" data-text="CYBER_BREAK">CYBER_BREAK</div>
                     <p class="subtitle neon-cyan">NEURAL INTERFACE INITIALIZED</p>
                     <div class="menu-options">

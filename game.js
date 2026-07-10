@@ -37,6 +37,7 @@ const state = {
     inputMode: 'keyboard',
     currentShopTab: 'upgrades',
     currentSkinCategory: 'paddle',
+    currentUser: null,
     skins: {
         paddle: {
             owned: [true, false, false, false],
@@ -54,6 +55,29 @@ const state = {
             owned: [true, false, false, false],
             active: 0
         }
+    }
+};
+
+// User Storage Keys Helper & Wrapper
+function getUserKey(key) {
+    if (key === 'cyberbreak_highscore' || key === 'cyberbreak_leaderboard' || key === 'cyberbreak_registered_users' || key === 'cyberbreak_last_user') {
+        return key;
+    }
+    if (state.currentUser) {
+        return `${key}_${state.currentUser}`;
+    }
+    return key;
+}
+
+const storage = {
+    get(key) {
+        return localStorage.getItem(getUserKey(key));
+    },
+    set(key, value) {
+        localStorage.setItem(getUserKey(key), value);
+    },
+    remove(key) {
+        localStorage.removeItem(getUserKey(key));
     }
 };
 
@@ -3334,7 +3358,7 @@ function gameOver() {
     const finalScoreInt = Math.floor(state.score);
     if (finalScoreInt > state.highScore) {
         state.highScore = finalScoreInt;
-        localStorage.setItem('cyberbreak_highscore', state.highScore);
+        storage.set('cyberbreak_highscore', state.highScore);
     }
     
     // Save persistent credits
@@ -3375,10 +3399,10 @@ function handleLevelComplete() {
     state.level++;
     
     if (state.gameMode === 'ENDLESS') {
-        const storedMax = parseInt(localStorage.getItem('cyberbreak_endless_maxlevel')) || 1;
+        const storedMax = parseInt(storage.get('cyberbreak_endless_maxlevel')) || 1;
         if (state.level > storedMax) {
             state.endlessMaxLevel = state.level;
-            localStorage.setItem('cyberbreak_endless_maxlevel', state.level);
+            storage.set('cyberbreak_endless_maxlevel', state.level);
         }
     }
     
@@ -3899,7 +3923,7 @@ function gameVictory() {
     const finalScoreInt = Math.floor(state.score);
     if (finalScoreInt > state.highScore) {
         state.highScore = finalScoreInt;
-        localStorage.setItem('cyberbreak_highscore', state.highScore);
+        storage.set('cyberbreak_highscore', state.highScore);
     }
     
     // Save persistent credits
@@ -4310,6 +4334,159 @@ function drawThemeBackground() {
 
 // --- EVENT HANDLERS & INITIALIZATION ---
 
+// --- ACCOUNT SYSTEM LOGICS ---
+function initAccountSystem() {
+    const lastUser = localStorage.getItem('cyberbreak_last_user');
+    if (lastUser) {
+        state.currentUser = lastUser;
+        document.getElementById('current-user-val').innerText = lastUser.toUpperCase();
+        document.getElementById('auth-overlay').classList.add('hidden');
+        document.getElementById('menu-overlay').classList.remove('hidden');
+        
+        // Load data for this user
+        loadHighScore();
+        loadCredits();
+    } else {
+        // Force login screen
+        document.getElementById('menu-overlay').classList.add('hidden');
+        document.getElementById('auth-overlay').classList.remove('hidden');
+    }
+}
+
+function handleLogin() {
+    const userField = document.getElementById('auth-username');
+    const passField = document.getElementById('auth-password');
+    const errorNode = document.getElementById('auth-error-msg');
+    
+    const username = userField.value.trim().toLowerCase();
+    const password = passField.value.trim();
+    
+    if (!username || !password) {
+        errorNode.innerText = "EMPTY_FIELDS // 请输入用户名和密码";
+        errorNode.classList.remove('hidden');
+        playSound('lost');
+        return;
+    }
+    
+    const savedUsers = JSON.parse(localStorage.getItem('cyberbreak_registered_users')) || {};
+    if (savedUsers[username] && savedUsers[username] === password) {
+        // Success
+        state.currentUser = username;
+        localStorage.setItem('cyberbreak_last_user', username);
+        document.getElementById('current-user-val').innerText = username.toUpperCase();
+        document.getElementById('auth-overlay').classList.add('hidden');
+        document.getElementById('menu-overlay').classList.remove('hidden');
+        errorNode.classList.add('hidden');
+        
+        userField.value = '';
+        passField.value = '';
+        
+        // Reload all data for this specific user
+        loadHighScore();
+        loadCredits();
+        
+        playSound('powerup');
+        addLogLine(`Operator ${username.toUpperCase()} linked successfully.`);
+    } else {
+        errorNode.innerText = "AUTH_FAILED // 用户名或密码错误";
+        errorNode.classList.remove('hidden');
+        playSound('lost');
+    }
+}
+
+function handleRegister() {
+    const userField = document.getElementById('auth-username');
+    const passField = document.getElementById('auth-password');
+    const errorNode = document.getElementById('auth-error-msg');
+    
+    const username = userField.value.trim().toLowerCase();
+    const password = passField.value.trim();
+    
+    if (!username || !password) {
+        errorNode.innerText = "EMPTY_FIELDS // 请输入用户名和密码";
+        errorNode.classList.remove('hidden');
+        playSound('lost');
+        return;
+    }
+    
+    if (username.length < 3 || username.length > 10) {
+        errorNode.innerText = "INVALID_LENGTH // 用户名长度须在 3-10 个字符之间";
+        errorNode.classList.remove('hidden');
+        playSound('lost');
+        return;
+    }
+    
+    const savedUsers = JSON.parse(localStorage.getItem('cyberbreak_registered_users')) || {};
+    if (savedUsers[username]) {
+        errorNode.innerText = "USER_EXISTS // 该用户名已被注册";
+        errorNode.classList.remove('hidden');
+        playSound('lost');
+        return;
+    }
+    
+    // Register
+    savedUsers[username] = password;
+    localStorage.setItem('cyberbreak_registered_users', JSON.stringify(savedUsers));
+    
+    // Auto-login after registration
+    state.currentUser = username;
+    localStorage.setItem('cyberbreak_last_user', username);
+    document.getElementById('current-user-val').innerText = username.toUpperCase();
+    document.getElementById('auth-overlay').classList.add('hidden');
+    document.getElementById('menu-overlay').classList.remove('hidden');
+    errorNode.classList.add('hidden');
+    
+    userField.value = '';
+    passField.value = '';
+    
+    // Reset/Clear fresh profiles in state and save
+    state.score = 0;
+    state.highScore = 0;
+    state.endlessMaxLevel = 1;
+    state.multPurchases = 0;
+    state.lifePurchases = 0;
+    state.skins = {
+        paddle: { owned: [true, false, false, false], active: 0 },
+        ball: { owned: [true, false, false, false], active: 0 },
+        brick: { owned: [true, false, false, false], active: 0 },
+        theme: { owned: [true, false, false, false], active: 0 }
+    };
+    
+    saveCredits();
+    storage.remove('cyberbreak_endless_save');
+    storage.remove('cyberbreak_endless_maxlevel');
+    storage.remove('cyberbreak_achievements');
+    
+    // Re-init default achievements map for this user
+    initAchievements();
+    
+    // Reload UI states
+    loadHighScore();
+    loadCredits();
+    
+    playSound('powerup');
+    addLogLine(`New Operator registered & loaded: ${username.toUpperCase()}`);
+}
+
+function handleLogout() {
+    // Save state before logout
+    saveCredits();
+    if (state.gameMode === 'ENDLESS' && state.mode === 'PLAYING') {
+        saveEndlessState();
+    }
+    
+    state.currentUser = null;
+    localStorage.removeItem('cyberbreak_last_user');
+    document.getElementById('current-user-val').innerText = 'UNAUTHORIZED';
+    document.getElementById('menu-overlay').classList.add('hidden');
+    document.getElementById('auth-overlay').classList.remove('hidden');
+    
+    // Stop any active game context and go back to menu
+    state.mode = 'MENU';
+    playSound('lost');
+    addLogLine(`Operator unlinked. Neural gateway closed.`);
+}
+
 function openLevelSelect() {
     const grid = document.querySelector('#level-select-overlay .level-select-grid');
     if (grid) {
@@ -4447,6 +4624,10 @@ function setupInputListeners() {
     });
     
     // Wire up buttons
+    document.getElementById('auth-login-btn').addEventListener('click', handleLogin);
+    document.getElementById('auth-register-btn').addEventListener('click', handleRegister);
+    document.getElementById('logout-btn').addEventListener('click', handleLogout);
+    
     document.getElementById('start-story-btn').addEventListener('click', () => startGame('STORY'));
     document.getElementById('start-endless-btn').addEventListener('click', () => startGame('ENDLESS'));
     document.getElementById('menu-select-btn').addEventListener('click', () => openLevelSelect());
@@ -4528,7 +4709,7 @@ const ACHIEVEMENTS_CONFIG = [
 ];
 
 function initAchievements() {
-    if (!localStorage.getItem('cyberbreak_achievements')) {
+    if (!storage.get('cyberbreak_achievements')) {
         const initial = {
             NEURAL_OVERDRIVE: false,
             GATEWAY_CRASHER: false,
@@ -4536,17 +4717,17 @@ function initAchievements() {
             GLITCH_SURVIVOR: false,
             IMMORTAL_RUNNER: false
         };
-        localStorage.setItem('cyberbreak_achievements', JSON.stringify(initial));
+        storage.set('cyberbreak_achievements', JSON.stringify(initial));
     }
 }
 
 function unlockAchievement(id) {
     try {
         initAchievements();
-        const data = JSON.parse(localStorage.getItem('cyberbreak_achievements')) || {};
+        const data = JSON.parse(storage.get('cyberbreak_achievements')) || {};
         if (data[id] === false) {
             data[id] = true;
-            localStorage.setItem('cyberbreak_achievements', JSON.stringify(data));
+            storage.set('cyberbreak_achievements', JSON.stringify(data));
             
             const ach = ACHIEVEMENTS_CONFIG.find(a => a.id === id);
             const achName = ach ? ach.name.split(' // ')[1] : id;
@@ -4562,7 +4743,7 @@ function unlockAchievement(id) {
 function isAchievementUnlocked(id) {
     try {
         initAchievements();
-        const data = JSON.parse(localStorage.getItem('cyberbreak_achievements')) || {};
+        const data = JSON.parse(storage.get('cyberbreak_achievements')) || {};
         return !!data[id];
     } catch (e) {
         return false;
@@ -4688,29 +4869,29 @@ function checkAndAddLeaderboard(scoreVal) {
 
 // Load cached high score
 function loadHighScore() {
-    const cached = localStorage.getItem('cyberbreak_highscore');
+    const cached = storage.get('cyberbreak_highscore');
     if (cached) {
         state.highScore = parseInt(cached);
         document.getElementById('high-score-val').innerText = String(state.highScore).padStart(6, '0');
     }
-    state.endlessMaxLevel = parseInt(localStorage.getItem('cyberbreak_endless_maxlevel')) || 1;
+    state.endlessMaxLevel = parseInt(storage.get('cyberbreak_endless_maxlevel')) || 1;
     loadLeaderboard();
 }
 
 // Load persistent score/credits
 function loadCredits() {
-    const cached = localStorage.getItem('cyberbreak_credits');
+    const cached = storage.get('cyberbreak_credits');
     if (cached) {
         state.score = parseFloat(cached) || 0;
     } else {
         state.score = 0;
     }
     
-    state.multPurchases = parseInt(localStorage.getItem('cyberbreak_mult_purchases')) || 0;
-    state.lifePurchases = parseInt(localStorage.getItem('cyberbreak_life_purchases')) || 0;
+    state.multPurchases = parseInt(storage.get('cyberbreak_mult_purchases')) || 0;
+    state.lifePurchases = parseInt(storage.get('cyberbreak_life_purchases')) || 0;
     
     try {
-        const skinsCached = localStorage.getItem('cyberbreak_skins');
+        const skinsCached = storage.get('cyberbreak_skins');
         if (skinsCached) {
             state.skins = JSON.parse(skinsCached);
             if (!state.skins.theme) {
@@ -4737,10 +4918,10 @@ function loadCredits() {
 
 // Save persistent score/credits
 function saveCredits() {
-    localStorage.setItem('cyberbreak_credits', state.score.toFixed(2));
-    localStorage.setItem('cyberbreak_mult_purchases', state.multPurchases || 0);
-    localStorage.setItem('cyberbreak_life_purchases', state.lifePurchases || 0);
-    localStorage.setItem('cyberbreak_skins', JSON.stringify(state.skins));
+    storage.set('cyberbreak_credits', state.score.toFixed(2));
+    storage.set('cyberbreak_mult_purchases', state.multPurchases || 0);
+    storage.set('cyberbreak_life_purchases', state.lifePurchases || 0);
+    storage.set('cyberbreak_skins', JSON.stringify(state.skins));
 }
 
 // Reset Endless progress, credits, and upgrades
@@ -4839,18 +5020,18 @@ function saveEndlessState() {
         bricks: brickStates
     };
     
-    localStorage.setItem('cyberbreak_endless_save', JSON.stringify(saveData));
+    storage.set('cyberbreak_endless_save', JSON.stringify(saveData));
     addLogLine("Endless Mode system state saved to memory.");
 }
 
 // Clear Endless Mode state
 function clearEndlessState() {
-    localStorage.removeItem('cyberbreak_endless_save');
+    storage.remove('cyberbreak_endless_save');
 }
 
 // Load Endless Mode state
 function loadEndlessState() {
-    const raw = localStorage.getItem('cyberbreak_endless_save');
+    const raw = storage.get('cyberbreak_endless_save');
     if (!raw) return false;
     
     try {
@@ -4909,8 +5090,7 @@ window.addEventListener('DOMContentLoaded', () => {
     ctx = canvas.getContext('2d');
     
     setupInputListeners();
-    loadHighScore();
-    loadCredits(); // Load persistent credits on startup
+    initAccountSystem();
     initEntities();
     
     // Save credits on page exit if playing

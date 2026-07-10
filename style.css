@@ -1033,4 +1033,78 @@ h1.glitch::after {
     font-family: 'Share Tech Mono', monospace;
 }
 
+/* User Profile HUD and Auth Overlay styling */
+.user-profile-header {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    z-index: 10;
+}
+.profile-label {
+    color: rgba(255, 255, 255, 0.4);
+}
+.logout-link {
+    background: transparent;
+    border: none;
+    color: var(--neon-magenta);
+    text-shadow: var(--shadow-magenta);
+    cursor: pointer;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    padding: 0;
+    transition: opacity 0.2s;
+    outline: none;
+}
+.logout-link:hover {
+    opacity: 0.8;
+    text-decoration: underline;
+}
+
+.auth-form {
+    width: 80%;
+    max-width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-top: 20px;
+    text-align: left;
+}
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-family: 'Orbitron', sans-serif;
+}
+.input-group label {
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: rgba(255, 255, 255, 0.6);
+}
+.input-group input {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--border-color);
+    color: #ffffff;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+    padding: 10px 14px;
+    border-radius: 4px;
+    outline: none;
+    transition: all 0.3s;
+}
+.input-group input:focus {
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+}
+.auth-error {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    text-align: center;
+    margin-top: 5px;
+}
+
 
