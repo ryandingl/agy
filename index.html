@@ -1,6 +1,27 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+    <script>
+    window.onerror = function(message, source, lineno, colno, error) {
+        var errorDiv = document.createElement('div');
+        errorDiv.style.position = 'fixed';
+        errorDiv.style.top = '10px';
+        errorDiv.style.left = '10px';
+        errorDiv.style.right = '10px';
+        errorDiv.style.background = 'rgba(255, 0, 85, 0.95)';
+        errorDiv.style.color = '#fff';
+        errorDiv.style.padding = '15px';
+        errorDiv.style.fontFamily = 'monospace';
+        errorDiv.style.fontSize = '12px';
+        errorDiv.style.zIndex = '99999';
+        errorDiv.style.border = '2px solid #ff0055';
+        errorDiv.style.borderRadius = '5px';
+        errorDiv.innerHTML = '<strong>RUNTIME CRASH ENCOUNTERED:</strong><br>' + 
+                              message + '<br>Source: ' + source + ' (Line: ' + lineno + ')';
+        document.body.appendChild(errorDiv);
+        return false;
+    };
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CYBER_BREAK // 赛博朋克打砖块</title>
