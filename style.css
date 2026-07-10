@@ -184,6 +184,23 @@ h1.glitch::after {
     border-top: 2px solid var(--border-color);
     clip-path: polygon(0 0, 90% 0, 100% 10%, 100% 100%, 10% 100%, 0 90%);
     box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.6);
+    min-height: 0;
+}
+
+/* Compact overrides for right panel status boxes to prevent height stretching */
+.right-panel {
+    gap: 8px !important;
+}
+.right-panel .status-box {
+    padding: 8px 12px;
+    flex-grow: 0;
+    flex-shrink: 1;
+}
+.right-panel .status-box.diagnostics {
+    flex-grow: 1;
+}
+.right-panel .status-box.log-console {
+    flex-grow: 1.2;
 }
 
 .left-panel .status-box:first-child {
