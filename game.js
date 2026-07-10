@@ -42,6 +42,8 @@ const state = {
     currentRadioTrack: 0,
     contracts: [],
     paddleBouncesInLevel: 0,
+    botScore: 0,
+    botTime: 0,
     skins: {
         paddle: {
             owned: [true, false, false, false],
@@ -1185,6 +1187,7 @@ let mouseX = CANVAS_WIDTH / 2;
 // Entities
 let paddle;
 let ghostPaddle = { x: CANVAS_WIDTH / 2, width: 120 };
+let aiPaddle = { x: CANVAS_WIDTH / 2, width: 120, height: 14, speed: 6.5 };
 let balls = [];
 let bricks = [];
 let powerups = [];
@@ -1719,6 +1722,16 @@ function updateHUD() {
     document.getElementById('mult-val').innerText = `x${state.multiplier.toFixed(1)}`;
     document.getElementById('level-val').innerText = String(state.level).padStart(2, '0');
     
+    // Toggle VS Bot HUD rows
+    const vsBotRows = document.querySelectorAll('.vs-bot-only');
+    if (state.gameMode === 'SCORE_BATTLE' || state.gameMode === 'PONG_BATTLE') {
+        vsBotRows.forEach(el => el.classList.remove('hidden'));
+        const botScoreNode = document.getElementById('bot-score-val');
+        if (botScoreNode) botScoreNode.innerText = String(Math.floor(state.botScore)).padStart(6, '0');
+    } else {
+        vsBotRows.forEach(el => el.classList.add('hidden'));
+    }
+    
     if (state.multiplier >= 5.0) {
         unlockAchievement('NEURAL_OVERDRIVE');
     }
@@ -2240,6 +2253,12 @@ function constructBrick(c, r, brickType, hp, maxHp, color, x = null, y = null, w
 function generateBricks() {
     bricks = [];
     state.paddleBouncesInLevel = 0;
+    
+    if (state.gameMode === 'PONG_BATTLE') {
+        state.bossActive = false;
+        state.boss = null;
+        return;
+    }
     
     if (state.level % 5 === 0) {
         state.bossActive = true;
@@ -3092,6 +3111,31 @@ function updatePhysics() {
         ghostPaddle.x = Math.max(0, Math.min(CANVAS_WIDTH - ghostPaddle.width, ghostPaddle.x));
     }
     
+    // Smooth AI Paddle movement in Pong Battle
+    if (state.gameMode === 'PONG_BATTLE') {
+        if (balls.length > 0) {
+            const leadBall = balls[0];
+            const targetAiX = leadBall.x - aiPaddle.width / 2;
+            const diffX = targetAiX - aiPaddle.x;
+            const step = Math.min(aiPaddle.speed, Math.abs(diffX));
+            aiPaddle.x += Math.sign(diffX) * step;
+            aiPaddle.x = Math.max(0, Math.min(CANVAS_WIDTH - aiPaddle.width, aiPaddle.x));
+            aiPaddle.width = paddle.width; // match width
+        }
+    }
+    
+    // AI Score and time updates in Score Battle
+    if (state.gameMode === 'SCORE_BATTLE') {
+        state.botTime += 1 / 60;
+        state.playerTime += 1 / 60;
+        if (Math.random() < 0.015) {
+            state.botScore += Math.floor((state.level * 15) * (1 + Math.random() * 0.5));
+        }
+        if (Math.random() < 0.1) {
+            state.botScore += 1;
+        }
+    }
+    
     // Paddle size animation transition
     if (paddle.width !== paddle.targetWidth) {
         const diff = paddle.targetWidth - paddle.width;
@@ -3125,6 +3169,47 @@ function updatePhysics() {
     for (let i = balls.length - 1; i >= 0; i--) {
         const b = balls[i];
         b.update();
+        
+        // Check bounce off AI paddle (Pong Battle only)
+        if (state.gameMode === 'PONG_BATTLE' &&
+            b.y - b.radius <= aiPaddle.y + aiPaddle.height &&
+            b.y - b.radius >= aiPaddle.y - 5 &&
+            b.x + b.radius >= aiPaddle.x &&
+            b.x - b.radius <= aiPaddle.x + aiPaddle.width &&
+            b.vy < 0) {
+            
+            b.y = aiPaddle.y + aiPaddle.height + b.radius;
+            const hitPoint = b.x - (aiPaddle.x + aiPaddle.width/2);
+            const normalizedHit = hitPoint / (aiPaddle.width / 2);
+            const maxAngle = 65 * Math.PI / 180;
+            const newAngle = normalizedHit * maxAngle;
+            
+            const speed = FIXED_BALL_SPEED;
+            b.vx = speed * Math.sin(newAngle);
+            b.vy = speed * Math.cos(newAngle);
+            
+            playSound('bounce');
+            triggerScreenShake(3);
+            spawnShockwave(b.x, aiPaddle.y + aiPaddle.height, '#ff0055');
+        }
+        
+        // Check fall off top (Pong Battle only)
+        if (state.gameMode === 'PONG_BATTLE' && b.y + b.radius < 0) {
+            balls.splice(i, 1);
+            state.score++;
+            state.botLives--;
+            updateHUD();
+            
+            if (state.botLives <= 0) {
+                triggerBattleComplete(true, "AI CORE LIFE DEPLETED // AI核心生命被彻底消耗");
+                return;
+            } else {
+                playSound('powerup');
+                triggerScreenShake(12);
+                spawnBall(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, false);
+            }
+            continue;
+        }
         
         // Check bounce off paddle
         if (b.y + b.radius >= paddle.y && 
@@ -3169,6 +3254,23 @@ function updatePhysics() {
         
         // Check fall off bottom
         if (b.y - b.radius > CANVAS_HEIGHT) {
+            if (state.gameMode === 'PONG_BATTLE') {
+                balls.splice(i, 1);
+                state.botScore++;
+                state.lives--;
+                updateHUD();
+                
+                if (state.lives <= 0) {
+                    triggerBattleComplete(false, "YOUR CORE LIFE DEPLETED // 您的核心生命耗尽");
+                    return;
+                } else {
+                    playSound('lost');
+                    triggerScreenShake(12);
+                    spawnBall(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, false);
+                }
+                continue;
+            }
+            
             // Check if floor shield prevents fall
             if (activeMods['SHIELD']) {
                 b.y = CANVAS_HEIGHT - 25;
@@ -3457,6 +3559,16 @@ function handleLevelComplete() {
     }
     state.score += stageClearBonus;
     addLogLine(`STAGE CLEAR BONUS: +${Math.round(stageClearBonus)} CR ${isMatrixRain ? '(MATRIX_RAIN +25%)' : ''}`);
+    
+    if (state.gameMode === 'SCORE_BATTLE') {
+        const playerWon = (state.score > state.botScore) || 
+                          (state.score === state.botScore && state.playerTime <= state.botTime);
+        const reason = playerWon ? 
+            "PLAYER SCORE EXCEEDED BOT // 玩家积分超越AI对手" : 
+            "BOT SCORE EXCEEDED PLAYER // AI对手积分超越玩家";
+        triggerBattleComplete(playerWon, reason);
+        return;
+    }
     
     // Check Daily Contracts
     if (state.diagnostics.coreTemp < 45) {
@@ -4012,13 +4124,82 @@ function gameVictory() {
     // Save persistent credits
     saveCredits();
     
-    document.getElementById('victory-score').innerText = finalScoreInt;
-    document.getElementById('victory-overlay').classList.remove('hidden');
+    const overlay = document.getElementById('victory-overlay');
+    overlay.classList.remove('hidden');
+    
+    const titleNode = overlay.querySelector('.glitch-title-large');
+    if (titleNode) {
+        titleNode.innerText = "SYSTEM_OVERFLOW";
+        titleNode.setAttribute('data-text', "SYSTEM_OVERFLOW");
+    }
+    const subtitleNode = overlay.querySelector('.subtitle');
+    if (subtitleNode) {
+        subtitleNode.innerText = "DATABASE BREACHED // 核心数据库破解成功";
+    }
+    const summaryNode = overlay.querySelector('.stats-summary');
+    if (summaryNode) {
+        summaryNode.innerHTML = `
+            <p>FINAL SCORE: <span class="neon-cyan">${finalScoreInt}</span></p>
+            <p>CORP DEFEATED!</p>
+        `;
+    }
+    const retryBtn = document.getElementById('win-retry-btn');
+    if (retryBtn) retryBtn.querySelector('.btn-text').innerText = "RE-ENTER GRID() // 重入网格";
+    
     addLogLine("SYS_SUCCESS: DATA EXTRACTED. CORP DEFEATED.");
     
     setTimeout(() => {
         checkAndAddLeaderboard(finalScoreInt);
     }, 500);
+}
+
+function triggerBattleComplete(playerWon, reason) {
+    state.mode = 'MENU';
+    playSound(playerWon ? 'victory' : 'lost');
+    
+    // Give credits reward
+    const reward = playerWon ? 80 : 20;
+    state.score = (state.score || 0) + reward;
+    saveCredits();
+    
+    // Reset highscore in UI
+    loadHighScore();
+    
+    const overlay = document.getElementById('victory-overlay');
+    overlay.classList.remove('hidden');
+    
+    const titleNode = overlay.querySelector('.glitch-title-large');
+    if (titleNode) {
+        titleNode.innerText = playerWon ? "BATTLE_VICTORY" : "BATTLE_DEFEAT";
+        titleNode.setAttribute('data-text', playerWon ? "BATTLE_VICTORY" : "BATTLE_DEFEAT");
+    }
+    
+    const subtitleNode = overlay.querySelector('.subtitle');
+    if (subtitleNode) {
+        subtitleNode.innerText = playerWon ? `AI BYPASSED // 成功击败AI核心 (+${reward} CR)` : `DEFEAT BY AI // 被AI核心击败 (+${reward} CR)`;
+    }
+    
+    const summaryNode = overlay.querySelector('.stats-summary');
+    if (summaryNode) {
+        if (state.gameMode === 'SCORE_BATTLE') {
+            summaryNode.innerHTML = `
+                <p>PLAYER SCORE: <span class="neon-cyan">${Math.floor(state.score - reward)}</span> (TIME: ${state.playerTime.toFixed(1)}s)</p>
+                <p>BOT SCORE: <span class="neon-yellow">${Math.floor(state.botScore)}</span> (TIME: ${state.botTime.toFixed(1)}s)</p>
+                <p>REASON: ${reason}</p>
+            `;
+        } else {
+            summaryNode.innerHTML = `
+                <p>PLAYER PONG SCORE: <span class="neon-cyan">${state.score - reward}</span></p>
+                <p>BOT PONG SCORE: <span class="neon-yellow">${state.botScore}</span></p>
+                <p>REASON: ${reason}</p>
+            `;
+        }
+    }
+    
+    const retryBtn = document.getElementById('win-retry-btn');
+    if (retryBtn) retryBtn.querySelector('.btn-text').innerText = "RE-ENTER DUEL() // 重新对决";
+    
+    addLogLine(`BATTLE COMPLETE. RESULT: ${playerWon ? 'VICTORY' : 'DEFEAT'}.`);
 }
 
 function startGame(chosenMode = 'STORY', startLevel = 1) {
@@ -4033,6 +4214,8 @@ function startGame(chosenMode = 'STORY', startLevel = 1) {
     document.getElementById('game-over-overlay').classList.add('hidden');
     document.getElementById('victory-overlay').classList.add('hidden');
     document.getElementById('shop-overlay').classList.add('hidden');
+    const vsBotOverlay = document.getElementById('vs-bot-overlay');
+    if (vsBotOverlay) vsBotOverlay.classList.add('hidden');
     
     // Reset active powerup list in UI
     const list = document.getElementById('powerup-list');
@@ -4048,15 +4231,39 @@ function startGame(chosenMode = 'STORY', startLevel = 1) {
         }
     }
     
-    // Otherwise initialize a fresh game
-    loadCredits();
-    state.baseMultiplier = 1.0 + (state.multPurchases || 0) * 0.2;
-    state.multiplier = state.baseMultiplier;
-    state.level = startLevel;
-    const maxLives = (state.skins && state.skins.theme && state.skins.theme.active === 3) ? 4 : 3;
-    state.lives = maxLives;
-    state.shopPendingBalls = 0;
-    activeMods = {};
+    if (chosenMode === 'SCORE_BATTLE') {
+        loadCredits();
+        state.botScore = 0;
+        state.botTime = 0;
+        state.playerTime = 0;
+        state.baseMultiplier = 1.0 + (state.multPurchases || 0) * 0.2;
+        state.multiplier = state.baseMultiplier;
+        state.level = 1;
+        state.lives = 3;
+        state.shopPendingBalls = 0;
+        activeMods = {};
+    } else if (chosenMode === 'PONG_BATTLE') {
+        state.botScore = 0;
+        state.botLives = 3;
+        state.score = 0;
+        state.level = 1;
+        state.lives = 3;
+        state.playerTime = 0;
+        state.botTime = 0;
+        state.multiplier = 1.0;
+        state.shopPendingBalls = 0;
+        activeMods = {};
+    } else {
+        // Otherwise initialize a fresh game
+        loadCredits();
+        state.baseMultiplier = 1.0 + (state.multPurchases || 0) * 0.2;
+        state.multiplier = state.baseMultiplier;
+        state.level = startLevel;
+        const maxLives = (state.skins && state.skins.theme && state.skins.theme.active === 3) ? 4 : 3;
+        state.lives = maxLives;
+        state.shopPendingBalls = 0;
+        activeMods = {};
+    }
     
     // Update Mode indicator text in DOM
     const modeValNode = document.getElementById('mode-val');
@@ -4064,6 +4271,8 @@ function startGame(chosenMode = 'STORY', startLevel = 1) {
         modeValNode.innerText = chosenMode;
         if (chosenMode === 'ENDLESS') {
             modeValNode.className = 'neon-yellow font-orbitron';
+        } else if (chosenMode === 'SCORE_BATTLE' || chosenMode === 'PONG_BATTLE') {
+            modeValNode.className = 'neon-cyan font-orbitron';
         } else {
             modeValNode.className = 'neon-magenta font-orbitron';
         }
@@ -4351,6 +4560,24 @@ function draw() {
     
     // Draw paddle
     paddle.draw();
+    
+    // Draw top AI paddle in Pong Battle mode
+    if (state.gameMode === 'PONG_BATTLE') {
+        ctx.save();
+        ctx.fillStyle = '#ff0055';
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#ff0055';
+        ctx.fillRect(aiPaddle.x, aiPaddle.y, aiPaddle.width, aiPaddle.height);
+        
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(aiPaddle.x + 2, aiPaddle.y + 2, aiPaddle.width - 4, aiPaddle.height - 4);
+        
+        ctx.fillStyle = '#ff0055';
+        ctx.font = '8px "Share Tech Mono", monospace';
+        ctx.fillText("AI_OPPONENT", aiPaddle.x + aiPaddle.width/2 - 26, aiPaddle.y - 6);
+        ctx.restore();
+    }
     
     // Draw balls
     balls.forEach(b => b.draw());
@@ -4802,6 +5029,21 @@ function setupInputListeners() {
     document.getElementById('menu-select-btn').addEventListener('click', () => openLevelSelect());
     document.getElementById('level-select-back-btn').addEventListener('click', () => {
         document.getElementById('level-select-overlay').classList.add('hidden');
+        document.getElementById('menu-overlay').classList.remove('hidden');
+    });
+    
+    document.getElementById('menu-vs-bot-btn').addEventListener('click', () => {
+        document.getElementById('menu-overlay').classList.add('hidden');
+        document.getElementById('vs-bot-overlay').classList.remove('hidden');
+    });
+    document.getElementById('vs-score-btn').addEventListener('click', () => {
+        startGame('SCORE_BATTLE');
+    });
+    document.getElementById('vs-pong-btn').addEventListener('click', () => {
+        startGame('PONG_BATTLE');
+    });
+    document.getElementById('vs-bot-back-btn').addEventListener('click', () => {
+        document.getElementById('vs-bot-overlay').classList.add('hidden');
         document.getElementById('menu-overlay').classList.remove('hidden');
     });
     document.getElementById('retry-btn').addEventListener('click', () => startGame(state.gameMode));
