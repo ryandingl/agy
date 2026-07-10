@@ -3166,10 +3166,10 @@ function updatePhysics() {
     if (state.gameMode === 'SCORE_BATTLE') {
         state.botTime += 1 / 60;
         state.playerTime += 1 / 60;
-        if (Math.random() < 0.015) {
-            state.botScore += Math.floor((state.level * 15) * (1 + Math.random() * 0.5));
+        if (Math.random() < 0.01) {
+            state.botScore += Math.floor((state.level * 5) * (1 + Math.random() * 0.4));
         }
-        if (Math.random() < 0.1) {
+        if (Math.random() < 0.05) {
             state.botScore += 1;
         }
     }
@@ -3599,12 +3599,13 @@ function handleLevelComplete() {
     if (isMatrixRain) {
         stageClearBonus *= 1.25;
     }
-    state.score += stageClearBonus;
+    increaseScore(stageClearBonus);
     addLogLine(`STAGE CLEAR BONUS: +${Math.round(stageClearBonus)} CR ${isMatrixRain ? '(MATRIX_RAIN +25%)' : ''}`);
     
     if (state.gameMode === 'SCORE_BATTLE') {
-        const playerWon = (state.score > state.botScore) || 
-                          (state.score === state.botScore && state.playerTime <= state.botTime);
+        const pScore = state.matchScore || 0;
+        const playerWon = (pScore > state.botScore) || 
+                          (pScore === state.botScore && state.playerTime <= state.botTime);
         const reason = playerWon ? 
             "PLAYER SCORE EXCEEDED BOT // 玩家积分超越AI对手" : 
             "BOT SCORE EXCEEDED PLAYER // AI对手积分超越玩家";
