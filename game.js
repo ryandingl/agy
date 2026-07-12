@@ -1244,7 +1244,9 @@ const POWERUP_TYPES = {
     SLOW: { label: 'TIME_DILATION', color: '#aa00ff', desc: '球速减慢' },
     GLITCH_FIELD: { label: 'GLITCH_FIELD', color: '#00ffff', desc: '干扰场 (随机损伤砖块)' },
     GRAVITY_WELL: { label: 'GRAVITY_WELL', color: '#b700ff', desc: '重力井 (弱引力辅助)' },
-    MIRROR_WALL: { label: 'MIRROR_WALL', color: '#00e5ff', desc: '镜像壁 (保护底部死角)' }
+    MIRROR_WALL: { label: 'MIRROR_WALL', color: '#00e5ff', desc: '镜像壁 (保护底部死角)' },
+    BOSS_BUSTER: { label: 'EMP_BLAST', color: '#05ff50', desc: '电磁脉冲 (对Boss造成巨大伤害)' },
+    BOSS_MELTER: { label: 'ORBITAL_STRIKE', color: '#00f0ff', desc: '轨道轰炸 (召唤等离子激光雨)' }
 };
 
 // Active power-up durations
@@ -2846,6 +2848,53 @@ function applyPowerup(pType, pConf) {
         case 'MIRROR_WALL':
             activeMods['MIRROR_WALL'] = 500; // frames
             break;
+            
+        case 'BOSS_BUSTER':
+            if (state.bossActive && state.boss) {
+                const boss = state.boss;
+                if (boss.shieldHp > 0) {
+                    boss.shieldHp = Math.max(0, boss.shieldHp - 4);
+                    playSound('hit_yellow');
+                    triggerScreenShake(12);
+                    spawnParticles(boss.x + boss.width / 2, boss.y + boss.height / 2, '#00ffff', 25);
+                    addLogLine("SYS_ALERT: EMP BURST CRIPPLED SHIELDS.");
+                } else {
+                    boss.hp = Math.max(1, boss.hp - 8); // Deal 8 damage, leave at least 1 HP
+                    playSound('hit_red');
+                    triggerScreenShake(20);
+                    spawnParticles(boss.x + boss.width / 2, boss.y + boss.height / 2, '#ff0055', 35);
+                    addLogLine("SYS_ALERT: EMP BURST DRAINED HP. REMAINING: " + boss.hp);
+                }
+            }
+            break;
+            
+        case 'BOSS_MELTER':
+            if (state.bossActive && state.boss) {
+                const boss = state.boss;
+                // Spawn 12 staggered falling lasers vertically targeting the boss's area
+                for (let k = 0; k < 12; k++) {
+                    const lx = boss.x + Math.random() * boss.width;
+                    const ly = -k * 15; // staggered offset
+                    lasers.push({
+                        x: lx,
+                        y: ly,
+                        vy: 8,
+                        color: '#00f0ff',
+                        draw() {
+                            ctx.save();
+                            ctx.shadowBlur = 8;
+                            ctx.shadowColor = this.color;
+                            ctx.fillStyle = this.color;
+                            ctx.fillRect(this.x - 2, this.y, 4, 15);
+                            ctx.restore();
+                        }
+                    });
+                }
+                triggerScreenShake(15);
+                playSound('hit_cyan');
+                addLogLine("SYS_ALERT: ORBITAL PLASMA STRIKE INITIATED.");
+            }
+            break;
     }
     
     renderPowerupListHUD();
@@ -2948,9 +2997,103 @@ function updateSpecialBricks() {
     });
 }
 
+function spawnBossSupply() {
+    if (!state.bossActive || !state.boss) return;
+    
+    const bossSupplies = [
+        {
+            type: 'LASER',
+            color: '#ff0055',
+            label: 'LASER_INJECT',
+            desc: '双通道激光武器：对准Boss发射激光'
+        },
+        {
+            type: 'MULTIBALL',
+            color: '#ffb700',
+            label: 'BALL_CLONE',
+            desc: '多线程增殖：克隆全场弹球轰炸Boss'
+        },
+        {
+            type: 'BOSS_BUSTER',
+            color: '#05ff50',
+            label: 'EMP_BLAST',
+            desc: '电磁冲击弹：捕获时对Boss造成大额伤害'
+        },
+        {
+            type: 'BOSS_MELTER',
+            color: '#00f0ff',
+            label: 'ORBITAL_STRIKE',
+            desc: '轨道轰炸：召唤跟踪等离子激光雨轰炸Boss'
+        }
+    ];
+    
+    const chosen = bossSupplies[Math.floor(Math.random() * bossSupplies.length)];
+    const x = Math.random() * (CANVAS_WIDTH - 120) + 60;
+    
+    powerups.push({
+        x: x - 40,
+        y: 110, // Drop below the boss's bottom
+        type: chosen.type,
+        width: 80,
+        height: 16,
+        speed: 1.6,
+        color: chosen.color,
+        label: chosen.label,
+        desc: chosen.desc,
+        update() {
+            this.y += this.speed;
+        },
+        draw() {
+            ctx.save();
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = this.color;
+            ctx.fillStyle = 'rgba(9, 10, 21, 0.95)';
+            ctx.strokeStyle = this.color;
+            ctx.lineWidth = 1.5;
+            
+            // Draw capsule
+            ctx.beginPath();
+            ctx.moveTo(this.x + 8, this.y);
+            ctx.lineTo(this.x + this.width - 8, this.y);
+            ctx.lineTo(this.x + this.width, this.y + this.height);
+            ctx.lineTo(this.x, this.y + this.height);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            
+            // Draw cross symbol inside
+            ctx.strokeStyle = this.color;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(this.x + 10, this.y + this.height / 2);
+            ctx.lineTo(this.x + 18, this.y + this.height / 2);
+            ctx.moveTo(this.x + 14, this.y + 4);
+            ctx.lineTo(this.x + 14, this.y + this.height - 4);
+            ctx.stroke();
+            
+            ctx.fillStyle = this.color;
+            ctx.font = '8px "Share Tech Mono", monospace';
+            ctx.fillText(this.label, this.x + 24, this.y + 11);
+            ctx.restore();
+        }
+    });
+    
+    addLogLine("SYS_ALERT: WEAPON CACHE INJECTED. HARVEST NOW.");
+}
+
 function updateBoss() {
     if (!state.bossActive || !state.boss) return;
     const boss = state.boss;
+    
+    // Weapons supply Drop Timer
+    if (state.supplyTimer === undefined) {
+        state.supplyTimer = 480;
+    }
+    state.supplyTimer--;
+    if (state.supplyTimer <= 0) {
+        state.supplyTimer = 540 + Math.random() * 300;
+        spawnBossSupply();
+    }
     
     // Move boss horizontally
     boss.x += boss.vx;
