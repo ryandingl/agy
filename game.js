@@ -2878,16 +2878,11 @@ function applyPowerup(pType, pConf) {
                     lasers.push({
                         x: lx,
                         y: ly,
+                        vx: 0,
                         vy: 8,
-                        color: '#00f0ff',
-                        draw() {
-                            ctx.save();
-                            ctx.shadowBlur = 8;
-                            ctx.shadowColor = this.color;
-                            ctx.fillStyle = this.color;
-                            ctx.fillRect(this.x - 2, this.y, 4, 15);
-                            ctx.restore();
-                        }
+                        width: 4,
+                        height: 15,
+                        color: '#00f0ff'
                     });
                 }
                 triggerScreenShake(15);
@@ -3578,8 +3573,8 @@ function updatePhysics() {
         const l = lasers[i];
         l.y += l.vy;
         
-        // Remove offscreen lasers
-        if (l.y < 0) {
+        // Remove offscreen lasers (going up off the top, or going down off the bottom)
+        if ((l.vy < 0 && l.y < -20) || (l.vy > 0 && l.y > CANVAS_HEIGHT + 20)) {
             lasers.splice(i, 1);
             continue;
         }
