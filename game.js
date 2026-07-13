@@ -3689,7 +3689,7 @@ function updatePhysics() {
         }
     }
     const remainingBricks = bricks.filter(b => b.hp > 0 && b.type !== 5);
-    if (state.gameMode !== 'PONG_BATTLE' && !state.bossActive && remainingBricks.length === 0) {
+    if (state.gameMode !== 'PONG_BATTLE' && state.gameMode !== 'PVP_BATTLE' && !state.bossActive && remainingBricks.length === 0) {
         handleLevelComplete();
     }
 }
