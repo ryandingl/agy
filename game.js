@@ -1893,7 +1893,7 @@ function spawnBall(x, y, attachToPaddle = false) {
         color: (SKINS_CONFIG.ball[state.skins ? state.skins.ball.active : 0] || SKINS_CONFIG.ball[0]).color,
         attached: attachToPaddle,
         trail: [],
-        delayFrames: (attachToPaddle || state.gameMode !== 'PONG_BATTLE') ? 0 : 90,
+        delayFrames: (attachToPaddle || (state.gameMode !== 'PONG_BATTLE' && state.gameMode !== 'PVP_BATTLE')) ? 0 : 90,
         update() {
             if (this.attached) {
                 this.x = paddle.x + paddle.width / 2;
@@ -1940,7 +1940,7 @@ function spawnBall(x, y, attachToPaddle = false) {
                 triggerScreenShake(2);
             }
             if (this.y - this.radius < 0) {
-                if (state.gameMode !== 'PONG_BATTLE') {
+                if (state.gameMode !== 'PONG_BATTLE' && state.gameMode !== 'PVP_BATTLE') {
                     this.y = this.radius;
                     this.vy = -this.vy;
                     playSound('bounce');
@@ -5848,7 +5848,7 @@ function executeTerminalCommand(cmdStr) {
         case '/give_credits': {
             const val = parseFloat(parts[1]) || 100;
             increaseScore(val);
-            if (state.gameMode !== 'SCORE_BATTLE' && state.gameMode !== 'PONG_BATTLE') {
+            if (state.gameMode !== 'SCORE_BATTLE' && state.gameMode !== 'PONG_BATTLE' && state.gameMode !== 'PVP_BATTLE') {
                 saveCredits();
             }
             triggerGlitchAlert(`INJECT_CREDITS // 注入积分: +${val} CR`);
