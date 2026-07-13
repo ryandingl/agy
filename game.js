@@ -130,7 +130,7 @@ function saveVsScore() {
 }
 
 function increaseScore(amount) {
-    if (state.gameMode === 'SCORE_BATTLE' || state.gameMode === 'PONG_BATTLE') {
+    if (state.gameMode === 'SCORE_BATTLE' || state.gameMode === 'PONG_BATTLE' || state.gameMode === 'PVP_BATTLE') {
         state.matchScore = (state.matchScore || 0) + amount;
     } else {
         state.score = (state.score || 0) + amount;
@@ -1744,14 +1744,14 @@ function triggerScreenShake(amount) {
 // Update DOM elements for stats
 function updateHUD() {
     state.multiplier = Math.min(9.9, state.multiplier);
-    const displayScore = (state.gameMode === 'SCORE_BATTLE' || state.gameMode === 'PONG_BATTLE') ? (state.matchScore || 0) : state.score;
+    const displayScore = (state.gameMode === 'SCORE_BATTLE' || state.gameMode === 'PONG_BATTLE' || state.gameMode === 'PVP_BATTLE') ? (state.matchScore || 0) : state.score;
     document.getElementById('score-val').innerText = String(Math.floor(displayScore)).padStart(6, '0');
     document.getElementById('mult-val').innerText = `x${state.multiplier.toFixed(1)}`;
     document.getElementById('level-val').innerText = String(state.level).padStart(2, '0');
     
-    // Toggle VS Bot HUD rows
+    // Toggle VS Bot/Player HUD rows
     const vsBotRows = document.querySelectorAll('.vs-bot-only');
-    if (state.gameMode === 'SCORE_BATTLE' || state.gameMode === 'PONG_BATTLE') {
+    if (state.gameMode === 'SCORE_BATTLE' || state.gameMode === 'PONG_BATTLE' || state.gameMode === 'PVP_BATTLE') {
         vsBotRows.forEach(el => el.classList.remove('hidden'));
         
         const playerVsScoreNode = document.getElementById('player-vs-score-val');
@@ -2293,7 +2293,7 @@ function generateBricks() {
     bricks = [];
     state.paddleBouncesInLevel = 0;
     
-    if (state.gameMode === 'PONG_BATTLE') {
+    if (state.gameMode === 'PONG_BATTLE' || state.gameMode === 'PVP_BATTLE') {
         state.bossActive = false;
         state.boss = null;
         return;
@@ -3264,13 +3264,22 @@ function updatePhysics() {
     
     // 1. Move Paddle
     let targetX = paddle.x;
-    if (state.inputMode === 'mouse') {
-        targetX = mouseX - paddle.width / 2;
-    } else {
-        if (keys['ArrowLeft'] || keys['a'] || keys['A']) {
+    if (state.gameMode === 'PVP_BATTLE') {
+        // Keyboard only for PVP to keep it fair: Player 1 (Bottom) uses Arrow keys
+        if (keys['ArrowLeft']) {
             targetX = paddle.x - paddle.speed;
-        } else if (keys['ArrowRight'] || keys['d'] || keys['D']) {
+        } else if (keys['ArrowRight']) {
             targetX = paddle.x + paddle.speed;
+        }
+    } else {
+        if (state.inputMode === 'mouse') {
+            targetX = mouseX - paddle.width / 2;
+        } else {
+            if (keys['ArrowLeft'] || keys['a'] || keys['A']) {
+                targetX = paddle.x - paddle.speed;
+            } else if (keys['ArrowRight'] || keys['d'] || keys['D']) {
+                targetX = paddle.x + paddle.speed;
+            }
         }
     }
     
@@ -3286,7 +3295,7 @@ function updatePhysics() {
         ghostPaddle.x = Math.max(0, Math.min(CANVAS_WIDTH - ghostPaddle.width, ghostPaddle.x));
     }
     
-    // Smooth AI Paddle movement in Pong Battle
+    // Smooth AI Paddle movement in Pong Battle or Player 2 movement in PVP
     if (state.gameMode === 'PONG_BATTLE') {
         if (balls.length > 0) {
             const leadBall = balls[0];
@@ -3298,6 +3307,13 @@ function updatePhysics() {
             aiPaddle.x = Math.max(0, Math.min(CANVAS_WIDTH - aiPaddle.width, aiPaddle.x));
             aiPaddle.width = paddle.width; // match width
         }
+    } else if (state.gameMode === 'PVP_BATTLE') {
+        if (keys['a'] || keys['A']) {
+            aiPaddle.x = Math.max(0, aiPaddle.x - aiPaddle.speed);
+        } else if (keys['d'] || keys['D']) {
+            aiPaddle.x = Math.min(CANVAS_WIDTH - aiPaddle.width, aiPaddle.x + aiPaddle.speed);
+        }
+        aiPaddle.width = paddle.width; // match width
     }
     
     // AI Score and time updates in Score Battle
@@ -3346,8 +3362,8 @@ function updatePhysics() {
         const b = balls[i];
         b.update();
         
-        // Check bounce off AI paddle (Pong Battle only)
-        if (state.gameMode === 'PONG_BATTLE' &&
+        // Check bounce off AI paddle (Pong Battle / PVP only)
+        if ((state.gameMode === 'PONG_BATTLE' || state.gameMode === 'PVP_BATTLE') &&
             b.y - b.radius <= aiPaddle.y + aiPaddle.height &&
             b.y - b.radius >= aiPaddle.y - 5 &&
             b.x + b.radius >= aiPaddle.x &&
@@ -3369,8 +3385,8 @@ function updatePhysics() {
             spawnShockwave(b.x, aiPaddle.y + aiPaddle.height, '#ff0055');
         }
         
-        // Check fall off top (Pong Battle only)
-        if (state.gameMode === 'PONG_BATTLE' && b.y + b.radius < 0) {
+        // Check fall off top (Pong Battle / PVP only)
+        if ((state.gameMode === 'PONG_BATTLE' || state.gameMode === 'PVP_BATTLE') && b.y + b.radius < 0) {
             balls.splice(i, 1);
             if (balls.length === 0) {
                 increaseScore(1);
@@ -3378,7 +3394,10 @@ function updatePhysics() {
                 updateHUD();
                 
                 if (state.botLives <= 0) {
-                    triggerBattleComplete(true, "AI CORE LIFE DEPLETED // AI核心生命被彻底消耗");
+                    const winnerReason = state.gameMode === 'PVP_BATTLE' ? 
+                        "PLAYER 1 (BOTTOM) WINS THE DUEL // 玩家一 (下方) 获得对决胜利" : 
+                        "AI CORE LIFE DEPLETED // AI核心生命被彻底消耗";
+                    triggerBattleComplete(true, winnerReason);
                     return;
                 } else {
                     playSound('powerup');
@@ -3432,7 +3451,7 @@ function updatePhysics() {
         
         // Check fall off bottom
         if (b.y - b.radius > CANVAS_HEIGHT) {
-            if (state.gameMode === 'PONG_BATTLE') {
+            if (state.gameMode === 'PONG_BATTLE' || state.gameMode === 'PVP_BATTLE') {
                 balls.splice(i, 1);
                 if (balls.length === 0) {
                     state.botScore++;
@@ -3440,7 +3459,10 @@ function updatePhysics() {
                     updateHUD();
                     
                     if (state.lives <= 0) {
-                        triggerBattleComplete(false, "YOUR CORE LIFE DEPLETED // 您的核心生命耗尽");
+                        const winnerReason = state.gameMode === 'PVP_BATTLE' ? 
+                            "PLAYER 2 (TOP) WINS THE DUEL // 玩家二 (上方) 获得对决胜利" : 
+                            "YOUR CORE LIFE DEPLETED // 您的核心生命耗尽";
+                        triggerBattleComplete(false, winnerReason);
                         return;
                     } else {
                         playSound('lost');
@@ -4426,7 +4448,7 @@ function startGame(chosenMode = 'STORY', startLevel = 1) {
         state.lives = 3;
         state.shopPendingBalls = 0;
         activeMods = {};
-    } else if (chosenMode === 'PONG_BATTLE') {
+    } else if (chosenMode === 'PONG_BATTLE' || chosenMode === 'PVP_BATTLE') {
         state.botScore = 0;
         state.botLives = 3;
         state.score = 0;
@@ -4462,7 +4484,7 @@ function startGame(chosenMode = 'STORY', startLevel = 1) {
         modeValNode.innerText = chosenMode;
         if (chosenMode === 'ENDLESS') {
             modeValNode.className = 'neon-yellow font-orbitron';
-        } else if (chosenMode === 'SCORE_BATTLE' || chosenMode === 'PONG_BATTLE') {
+        } else if (chosenMode === 'SCORE_BATTLE' || chosenMode === 'PONG_BATTLE' || chosenMode === 'PVP_BATTLE') {
             modeValNode.className = 'neon-cyan font-orbitron';
         } else {
             modeValNode.className = 'neon-magenta font-orbitron';
@@ -4752,8 +4774,8 @@ function draw() {
     // Draw paddle
     paddle.draw();
     
-    // Draw top AI paddle in Pong Battle mode
-    if (state.gameMode === 'PONG_BATTLE') {
+    // Draw top AI paddle in Pong Battle mode or PVP mode
+    if (state.gameMode === 'PONG_BATTLE' || state.gameMode === 'PVP_BATTLE') {
         ctx.save();
         ctx.fillStyle = '#ff0055';
         ctx.shadowBlur = 15;
@@ -4766,12 +4788,13 @@ function draw() {
         
         ctx.fillStyle = '#ff0055';
         ctx.font = '8px "Share Tech Mono", monospace';
-        ctx.fillText("AI_OPPONENT", aiPaddle.x + aiPaddle.width/2 - 26, aiPaddle.y - 6);
+        const label = state.gameMode === 'PVP_BATTLE' ? "PLAYER_2" : "AI_OPPONENT";
+        ctx.fillText(label, aiPaddle.x + aiPaddle.width/2 - (state.gameMode === 'PVP_BATTLE' ? 18 : 26), aiPaddle.y - 6);
         ctx.restore();
     }
     
-    // Draw ball serve countdown during Pong Battle
-    if (state.gameMode === 'PONG_BATTLE') {
+    // Draw ball serve countdown during Pong/PVP Battle
+    if (state.gameMode === 'PONG_BATTLE' || state.gameMode === 'PVP_BATTLE') {
         balls.forEach(b => {
             if (b.delayFrames > 0) {
                 ctx.save();
@@ -5254,6 +5277,9 @@ function setupInputListeners() {
     });
     document.getElementById('vs-pong-btn').addEventListener('click', () => {
         startGame('PONG_BATTLE');
+    });
+    document.getElementById('vs-pvp-btn').addEventListener('click', () => {
+        startGame('PVP_BATTLE');
     });
     document.getElementById('vs-bot-back-btn').addEventListener('click', () => {
         document.getElementById('vs-bot-overlay').classList.add('hidden');
