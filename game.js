@@ -1821,7 +1821,7 @@ function initEntities() {
         width: 120 * (1 + pBonus),
         height: 14,
         targetWidth: 120 * (1 + pBonus),
-        speed: 10,
+        speed: 12.5,
         color: '#0044ff',
         draw(c = ctx) {
             const active = state.skins ? state.skins.paddle.active : 0;
@@ -4465,7 +4465,7 @@ function startGame(chosenMode = 'STORY', startLevel = 1) {
         aiPaddle.y = 35;
         aiPaddle.width = 120;
         aiPaddle.height = 14;
-        aiPaddle.speed = 4.8;
+        aiPaddle.speed = chosenMode === 'PVP_BATTLE' ? 12.5 : 4.8;
     } else {
         // Otherwise initialize a fresh game
         loadCredits();
